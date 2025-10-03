@@ -36,6 +36,61 @@ header p {
     font-size: 14px;
 }
 
+.support-info {
+    margin-top: 20px;
+}
+
+.support-info details {
+    cursor: pointer;
+}
+
+.support-info summary {
+    color: #3498db;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    user-select: none;
+}
+
+.support-info summary:hover {
+    background: #e9ecef;
+}
+
+.support-details {
+    margin-top: 15px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    text-align: left;
+}
+
+.support-section {
+    margin-bottom: 15px;
+}
+
+.support-section:last-child {
+    margin-bottom: 0;
+}
+
+.support-section h4 {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    color: #2c3e50;
+}
+
+.support-section ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.support-section li {
+    font-size: 13px;
+    color: #555;
+    margin: 4px 0;
+}
+
 .input-section {
     display: flex;
     gap: 10px;

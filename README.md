@@ -1,32 +1,46 @@
 # Article Reader
 
-A powerful web application for reading articles from Medium, Substack, and other newsletters with **advanced paywall bypass capabilities**.
+A web application for reading articles with **paywall bypass for supported sites**. Removes ads, popups, and provides a clean reading experience.
+
+**⚠️ Important:** Modern paywalls (Medium, Substack) use server-side truncation and cannot be bypassed. This app works best with overlay-based paywalls.
+
+## What Actually Works (2025 Reality Check)
+
+### ✅ **Fully Supported (90%+ Success)**
+- **Forbes, Inc, Bloomberg** - Overlay paywalls are easily bypassed
+- **Local news sites** - Most use soft CSS-based paywalls
+- **WordPress blogs** - CSS/JavaScript restrictions
+- **Academic sites** - Content hidden with simple JavaScript
+- **Any site using client-side paywalls**
+
+### ⚠️ **Partially Supported (Preview Only)**
+- **Medium** - Only gets free preview (~500 chars). Full content is server-truncated since 2024
+- **Substack** - Only gets free preview. Paid content never sent to browser
+- **NYT, WSJ** - Metered paywall (you get your free articles, then blocked)
+
+### ❌ **Not Supported (0% Success)**
+- **Hard paywalls** - Content never sent without valid subscription
+- **Login-required content** - Requires authentication
+- **Advanced bot detection** - Cloudflare Turnstile, reCAPTCHA
+- **Server-side paywalls** - Content truncated before transmission
 
 ## Features
 
 ✅ **Dual-Mode Fetching**
    - Fast basic fetch for open articles
-   - Advanced Puppeteer-based fetch for paywalled content
+   - Advanced Puppeteer-based fetch for JavaScript-heavy sites
 
-✅ **Paywall Bypass** - Multiple techniques to access restricted content:
-   - Removes paywall overlays and modals
+✅ **Paywall Bypass** - Works for overlay/CSS-based paywalls:
+   - Removes subscription prompts and modals
    - Re-enables scrolling
    - Removes blur effects
-   - Bypasses soft paywalls
+   - Blocks tracking scripts
 
-✅ **Mozilla Readability Integration** - Uses Firefox's reader mode algorithm for clean extraction
+✅ **Mozilla Readability Integration** - Clean article extraction
 
-✅ **Smart Content Extraction** - Platform-specific optimizations for:
-   - Medium articles
-   - Substack newsletters
-   - WordPress blogs
-   - News websites
+✅ **Clean Reading Experience** - Removes ads, popups, and distractions
 
-✅ **Comprehensive Error Handling** - Detailed messages for all common issues
-
-✅ **Clean Reading Experience** - Removes ads, popups, tracking scripts, and distractions
-
-✅ **Mobile Responsive** - Works great on all devices
+✅ **Mobile Responsive** - Works on all devices
 
 ## Installation
 
@@ -40,7 +54,7 @@ npm install
 npm start
 ```
 
-3. Open your browser to:
+3. Open in browser:
 ```
 http://localhost:3000
 ```
@@ -52,56 +66,31 @@ http://localhost:3000
 1. **Basic Mode (Default)**
    - Fast HTTP fetch using Axios
    - Mozilla Readability for content extraction
-   - Good for most open articles
    - ~1-2 seconds load time
 
 2. **Advanced Mode (Automatic Fallback)**
    - Headless Chrome via Puppeteer
    - JavaScript execution for dynamic content
-   - Paywall bypass techniques:
-     - Removes overlay elements
-     - Re-enables scrolling
-     - Removes blur filters
-     - Blocks tracking scripts
+   - Paywall bypass for overlay-based paywalls
    - ~5-10 seconds load time
 
-The app automatically tries the advanced mode when:
-- Basic fetch fails
-- Paywall is detected
-- User manually requests it
+The app automatically tries advanced mode when it detects client-side paywalls.
 
-### Paywall Bypass Techniques
+## Limitations
 
-- **Overlay Removal**: Removes subscription prompts and modal dialogs
-- **Scroll Re-enablement**: Fixes pages that disable scrolling
-- **Blur Filter Removal**: Makes hidden content visible
-- **Ad Blocker**: Blocks tracking and analytics
-- **JavaScript Execution**: Renders dynamic content
-- **Reader Mode**: Extracts clean article text using Mozilla's algorithm
+**Why Medium/Substack Don't Work:**
 
-### Error Handling
+Modern paywalls (2024+) use **server-side content truncation**:
+1. Your browser requests an article
+2. Server checks if you're subscribed (checks cookies/session)
+3. If not subscribed, server only sends preview HTML
+4. Full article content **never leaves their database**
+5. No client-side trick can reveal content that was never transmitted
 
-The app handles all common restrictions:
-- ✅ **403 Forbidden** - Automatically tries Puppeteer
-- ✅ **404 Not Found** - Clear error message
-- ✅ **429 Rate Limited** - Retry guidance
-- ✅ **Timeouts** - 30s timeout with fallback
-- ✅ **DNS Errors** - URL validation
-- ✅ **Soft Paywalls** - Bypass via Puppeteer
-- ✅ **Hard Paywalls** - Attempts bypass, warns if unsuccessful
-- ✅ **JavaScript-heavy sites** - Full rendering with Puppeteer
+This is like asking someone to read a page from a book that's locked in a vault - it's physically impossible.
 
-### Supported Platforms
+## Technical Stack
 
-- **Medium** - Full article extraction
-- **Substack** - Newsletter content
-- **WordPress** - Most WordPress blogs
-- **News Sites** - General news websites
-- **Generic** - Any HTML article page
-
-## Technical Details
-
-### Stack
 - **Frontend**: Vanilla JavaScript, HTML5, CSS3
 - **Backend**: Node.js with Express
 - **HTTP Client**: Axios for basic fetching
@@ -110,45 +99,48 @@ The app handles all common restrictions:
 - **Timeout**: 30 seconds per request
 - **Redirects**: Follows up to 5 redirects
 
-### API Endpoints
+## API Endpoints
+
 - `GET /fetch-article?url=<URL>` - Basic fetch (fast)
 - `GET /fetch-article-advanced?url=<URL>` - Puppeteer fetch (paywall bypass)
 
-### Dependencies
-```json
-{
-  "express": "HTTP server",
-  "axios": "HTTP client",
-  "puppeteer": "Headless browser",
-  "@mozilla/readability": "Content extraction",
-  "jsdom": "DOM parsing",
-  "cors": "Cross-origin support"
-}
-```
+## Testing Sites
 
-## Limitations
+**Try these to see what works:**
 
-Some websites may still block access due to:
-- **Hard Paywalls**: Require valid subscriptions (NYT, WSJ with metered paywall)
-- **Advanced Bot Detection**: Cloudflare Turnstile, reCAPTCHA
-- **IP-based Rate Limiting**: Too many requests from same IP
-- **Login-Required Content**: Account-only articles
-- **Geographic Restrictions**: Region-locked content
+✅ **Forbes**: https://www.forbes.com (any article with overlay)
+✅ **Inc**: https://www.inc.com (overlay paywalls)
+⚠️ **Medium**: https://medium.com (only preview)
+⚠️ **Substack**: https://substack.com (only preview)
 
-For these cases, the app will attempt bypass and provide helpful error messages.
+## Ethical Considerations
+
+**Use Responsibly:**
+- This tool is for personal reading only
+- Bypassing paywalls may violate Terms of Service
+- Consider supporting quality journalism with subscriptions
+- Respect content creators
+
+**Legal Disclaimer:** This software is provided for educational purposes. Users are responsible for complying with website terms of service and applicable laws.
 
 ## Project Structure
 
 ```
 DemoRead/
-├── index.html      # Main webpage
-├── style.css       # Styling
-├── script.js       # Frontend logic
-├── server.js       # Proxy server
-├── package.json    # Dependencies
-└── README.md       # Documentation
+├── index.html          # Main webpage
+├── style.css           # Styling
+├── script.js           # Frontend logic
+├── server.js           # Proxy server with paywall bypass
+├── package.json        # Dependencies
+├── README.md           # This file
+├── SETUP.md            # Installation guide
+└── PAYWALL_BYPASS.md   # Technical documentation
 ```
 
 ## License
 
 MIT
+
+---
+
+**Built with frustration after realizing modern paywalls are actually well-designed.**
