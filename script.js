@@ -59,6 +59,11 @@ async function loadArticle() {
             }
         }
 
+        // Show warning if content is truncated
+        if (data.warning || data.isTruncated) {
+            showWarning(data.warning || 'This article may be truncated due to a server-side paywall. Only publicly available content is shown.');
+        }
+
         // Display title and byline if available
         if (data.title) {
             const titleHtml = `

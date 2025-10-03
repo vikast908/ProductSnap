@@ -77,12 +77,13 @@ const blockedDomains = [
    - Example: Some Medium articles
    - **Bypass**: Clean cookies, render with Puppeteer
 
-### ⚠️ **Hard Paywalls (Limited Success)**
+### ⚠️ **Hard Paywalls (Cannot Bypass)**
 
-1. **Server-side Paywalls**
+1. **Server-side Paywalls (Truncation)**
    - Content never sent to browser
-   - Example: New York Times, Wall Street Journal
-   - **Status**: Cannot bypass without valid subscription
+   - Example: Substack paid posts, New York Times, Wall Street Journal
+   - **Status**: Cannot bypass - only preview/free portion is available
+   - **Explanation**: The server literally doesn't send the full article. No amount of JavaScript or DOM manipulation can reveal content that was never transmitted.
 
 2. **Login-required Content**
    - Requires authentication
@@ -129,13 +130,34 @@ Display Content         Remove blur effects
                         Display Content
 ```
 
-## Success Rates (Estimated)
+## Success Rates (Updated 2025)
 
-- **Medium**: ~80% success on member-only articles
-- **Substack**: ~70% success on subscriber content
+- **Medium**: ~10% success - Medium removed `articleBody` from JSON-LD for paywalled articles (as of 2024)
+- **Substack**: ~20% success - most use server-side truncation (hard paywall)
 - **Local News**: ~85% success on soft paywalls
-- **Major Publishers (NYT, WSJ)**: ~10% (only works on soft meter)
+- **Major Publishers (NYT, WSJ)**: ~10% (only works on soft meter, most content truncated)
 - **Forbes/Inc**: ~90% success on overlay-based paywalls
+
+## Important Limitation: Server-Side Truncation
+
+**Many modern paywalls (including Substack) truncate content on the server before sending it to your browser.**
+
+When you see a Substack article that says "Subscribe to continue reading", the full article content **was never sent** to your browser. The server only transmitted the preview portion. This means:
+
+- ❌ No JavaScript bypass will work
+- ❌ No DOM manipulation will reveal the content
+- ❌ No cookie clearing will help
+- ❌ The content literally doesn't exist in the page source
+
+**What works:**
+- ✅ You'll get all publicly available content cleaned up
+- ✅ Overlays and prompts are removed
+- ✅ The app will warn you when truncation is detected
+
+**The only way to access server-truncated content:**
+- Pay for a subscription (support the creators!)
+- Some newsletters offer free trials
+- Check if the author cross-posted to other platforms
 
 ## Manual Override
 

@@ -120,10 +120,47 @@ app.get('/fetch-article', async (req, res) => {
         const html = response.data;
         const finalUrl = response.request.res.responseUrl || url;
 
-        // Use Mozilla Readability to extract clean article content
-        const dom = new JSDOM(html, { url: finalUrl });
-        const reader = new Readability(dom.window.document);
-        const article = reader.parse();
+        // Special handling for Medium in basic mode
+        const isMedium = url.includes('medium.com') || url.includes('towardsdatascience.com');
+        let article = null;
+
+        if (isMedium) {
+            const dom = new JSDOM(html, { url: finalUrl });
+            const doc = dom.window.document;
+
+            // Try JSON-LD first
+            const scripts = Array.from(doc.querySelectorAll('script[type="application/ld+json"]'));
+            for (const script of scripts) {
+                try {
+                    const data = JSON.parse(script.textContent);
+                    const validTypes = ['Article', 'NewsArticle', 'SocialMediaPosting'];
+                    if (validTypes.includes(data['@type']) && data.articleBody) {
+                        const contentHtml = data.articleBody
+                            .split('\n\n')
+                            .filter(p => p.trim())
+                            .map(p => `<p>${p.trim().replace(/\n/g, '<br>')}</p>`)
+                            .join('\n');
+
+                        article = {
+                            title: data.headline || data.name,
+                            byline: data.author?.name,
+                            content: contentHtml,
+                            excerpt: data.description
+                        };
+                        break;
+                    }
+                } catch (e) {
+                    continue;
+                }
+            }
+        }
+
+        // Fallback to Mozilla Readability
+        if (!article || !article.content) {
+            const dom = new JSDOM(html, { url: finalUrl });
+            const reader = new Readability(dom.window.document);
+            article = reader.parse();
+        }
 
         // Check for paywall indicators
         const paywallIndicators = [
@@ -237,6 +274,10 @@ app.get('/fetch-article-advanced', async (req, res) => {
             }
         });
 
+        // Special handling for different platforms
+        const isSubstack = url.includes('substack.com');
+        const isMedium = url.includes('medium.com') || url.includes('towardsdatascience.com');
+
         // Navigate to the page
         await page.goto(url, {
             waitUntil: 'networkidle2',
@@ -244,35 +285,120 @@ app.get('/fetch-article-advanced', async (req, res) => {
         });
 
         // Wait for content to load
-        await page.waitForTimeout(2000);
+        await page.waitForTimeout(3000);
+
+        // For Substack, try to expand truncated content
+        if (isSubstack) {
+            await page.evaluate(() => {
+                // Click "Continue reading" or similar buttons
+                const buttons = Array.from(document.querySelectorAll('button, a, div[role="button"]'));
+                buttons.forEach(btn => {
+                    const text = btn.textContent.toLowerCase();
+                    if (text.includes('continue reading') ||
+                        text.includes('read more') ||
+                        text.includes('show more')) {
+                        btn.click();
+                    }
+                });
+
+                // Remove truncation markers
+                document.querySelectorAll('[class*="truncat"]').forEach(el => {
+                    el.classList.remove(...Array.from(el.classList).filter(c => c.includes('truncat')));
+                });
+
+                // Expand collapsed content
+                document.querySelectorAll('.collapsed, [class*="collapse"]').forEach(el => {
+                    el.style.maxHeight = 'none';
+                    el.style.height = 'auto';
+                    el.style.display = 'block';
+                });
+            });
+
+            // Wait a bit more for expanded content
+            await page.waitForTimeout(2000);
+        }
 
         // Try to bypass common paywall techniques
         await page.evaluate(() => {
-            // Remove paywall overlays
+            // Aggressively remove Substack paywall boxes
+            const paywallTexts = [
+                'this post is for paid subscribers',
+                'upgrade to paid',
+                'already a paid subscriber',
+                'subscribe to continue',
+                'for paid subscribers only',
+                'upgrade to continue reading'
+            ];
+
+            // Remove any element containing paywall text
+            document.querySelectorAll('*').forEach(el => {
+                const text = el.textContent.toLowerCase();
+                if (paywallTexts.some(pw => text.includes(pw))) {
+                    // Check if this element is relatively small (likely the paywall box itself)
+                    if (el.textContent.length < 500) {
+                        el.remove();
+                    }
+                }
+            });
+
+            // Remove paywall overlays by selector
             const overlaySelectors = [
                 '[class*="paywall"]', '[id*="paywall"]',
                 '[class*="overlay"]', '[id*="overlay"]',
                 '[class*="modal"]', '[id*="modal"]',
-                '[class*="subscription"]', '[id*="subscription"]'
+                '[class*="subscription"]', '[id*="subscription"]',
+                '[class*="subscribe-"]', '[class*="upgrade"]',
+                '.subscription-widget', '.paywall-cta',
+                '[data-testid*="paywall"]', '[data-testid*="subscription"]'
             ];
 
             overlaySelectors.forEach(selector => {
                 document.querySelectorAll(selector).forEach(el => {
-                    if (el.textContent.toLowerCase().includes('subscribe') ||
-                        el.textContent.toLowerCase().includes('sign in') ||
-                        el.textContent.toLowerCase().includes('member')) {
+                    const text = el.textContent.toLowerCase();
+                    if (text.includes('subscribe') ||
+                        text.includes('sign in') ||
+                        text.includes('member') ||
+                        text.includes('upgrade') ||
+                        text.includes('paid')) {
                         el.remove();
                     }
                 });
+            });
+
+            // Specifically target Substack's colored boxes (often orange/red)
+            document.querySelectorAll('div').forEach(el => {
+                const style = window.getComputedStyle(el);
+                const bgColor = style.backgroundColor;
+                const text = el.textContent.toLowerCase();
+
+                // If it's a colored box with paywall text
+                if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
+                    if (text.includes('paid subscriber') ||
+                        text.includes('upgrade') ||
+                        text.includes('this post is for')) {
+                        el.remove();
+                    }
+                }
             });
 
             // Re-enable scrolling if disabled
             document.body.style.overflow = 'auto';
             document.documentElement.style.overflow = 'auto';
 
-            // Remove blur effects
+            // Remove blur effects and max-height restrictions
             document.querySelectorAll('[style*="blur"]').forEach(el => {
                 el.style.filter = 'none';
+            });
+
+            document.querySelectorAll('[style*="max-height"]').forEach(el => {
+                el.style.maxHeight = 'none';
+            });
+
+            // Show hidden content
+            document.querySelectorAll('[style*="display: none"], [style*="display:none"]').forEach(el => {
+                if (!el.closest('script') && !el.closest('style')) {
+                    el.style.display = 'block';
+                }
             });
         });
 
@@ -280,19 +406,126 @@ app.get('/fetch-article-advanced', async (req, res) => {
         const html = await page.content();
         const finalUrl = page.url();
 
-        // Use Readability for clean extraction
-        const dom = new JSDOM(html, { url: finalUrl });
-        const reader = new Readability(dom.window.document);
-        const article = reader.parse();
+        // For Medium, try to extract full content from page data
+        let article = null;
+        if (isMedium) {
+            try {
+                const mediumData = await page.evaluate(() => {
+                    // Method 1: JSON-LD Schema
+                    const scripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+                    for (const script of scripts) {
+                        try {
+                            const data = JSON.parse(script.textContent);
+                            const validTypes = ['Article', 'NewsArticle', 'SocialMediaPosting'];
+                            if (validTypes.includes(data['@type'])) {
+                                if (data.articleBody) {
+                                    return {
+                                        method: 'jsonld',
+                                        title: data.headline || data.name,
+                                        author: data.author?.name,
+                                        content: data.articleBody,
+                                        description: data.description
+                                    };
+                                }
+                            }
+                        } catch (e) {
+                            continue;
+                        }
+                    }
 
-        // Check for paywall
+                    // Method 2: Extract from Medium's React state
+                    const stateScript = document.querySelector('script:not([src]):not([type])');
+                    if (stateScript) {
+                        const match = stateScript.textContent.match(/window\.__APOLLO_STATE__\s*=\s*({.+?});/s);
+                        if (match) {
+                            try {
+                                const state = JSON.parse(match[1]);
+                                // Find the post content in Apollo state
+                                for (const key in state) {
+                                    if (key.startsWith('Post:') && state[key].content) {
+                                        const content = state[key].content;
+                                        return {
+                                            method: 'apollo',
+                                            title: state[key].title,
+                                            author: state[key].creator?.name,
+                                            content: JSON.stringify(content),
+                                            description: state[key].previewContent?.subtitle
+                                        };
+                                    }
+                                }
+                            } catch (e) {
+                                console.log('Apollo parse error:', e);
+                            }
+                        }
+                    }
+
+                    // Method 3: Direct article extraction
+                    const articleElement = document.querySelector('article');
+                    if (articleElement) {
+                        return {
+                            method: 'direct',
+                            title: document.querySelector('h1')?.textContent,
+                            author: document.querySelector('[rel="author"]')?.textContent,
+                            content: articleElement.innerHTML,
+                            description: null
+                        };
+                    }
+
+                    return null;
+                });
+
+                if (mediumData && mediumData.content) {
+                    let contentHtml = mediumData.content;
+
+                    // If content is plain text, convert to HTML
+                    if (mediumData.method === 'jsonld' && !contentHtml.includes('<')) {
+                        contentHtml = mediumData.content
+                            .split('\n\n')
+                            .filter(p => p.trim())
+                            .map(p => `<p>${p.trim().replace(/\n/g, '<br>')}</p>`)
+                            .join('\n');
+                    }
+
+                    article = {
+                        title: mediumData.title,
+                        byline: mediumData.author,
+                        content: contentHtml,
+                        excerpt: mediumData.description
+                    };
+
+                    console.log(`Medium extraction successful via ${mediumData.method}`);
+                }
+            } catch (e) {
+                console.log('Failed to extract Medium content:', e.message);
+            }
+        }
+
+        // Fallback to Readability if JSON-LD extraction failed
+        if (!article || !article.content) {
+            const dom = new JSDOM(html, { url: finalUrl });
+            const reader = new Readability(dom.window.document);
+            article = reader.parse();
+        }
+
+        // Check for paywall and truncation
         const paywallIndicators = [
             'paywall', 'subscriber-only', 'members-only', 'premium-content',
             'subscription required', 'subscribe to read', 'register to continue',
             'sign in to read', 'become a member'
         ];
 
+        const truncationIndicators = [
+            'subscribe to continue reading',
+            'this post is for paid subscribers',
+            'upgrade to continue reading',
+            'available to paid subscribers'
+        ];
+
         const hasPaywall = paywallIndicators.some(indicator =>
+            html.toLowerCase().includes(indicator)
+        );
+
+        const isTruncated = truncationIndicators.some(indicator =>
             html.toLowerCase().includes(indicator)
         );
 
@@ -307,8 +540,10 @@ app.get('/fetch-article-advanced', async (req, res) => {
                 excerpt: article.excerpt,
                 readableContent: true,
                 hasPaywall: hasPaywall,
+                isTruncated: isTruncated,
                 method: 'puppeteer',
-                url: finalUrl
+                url: finalUrl,
+                warning: isTruncated ? 'Content may be incomplete - server-side paywall detected' : null
             });
         } else {
             res.json({
@@ -316,8 +551,10 @@ app.get('/fetch-article-advanced', async (req, res) => {
                 content: html,
                 readableContent: false,
                 hasPaywall: hasPaywall,
+                isTruncated: isTruncated,
                 method: 'puppeteer',
-                url: finalUrl
+                url: finalUrl,
+                warning: isTruncated ? 'Content may be incomplete - server-side paywall detected' : null
             });
         }
 
