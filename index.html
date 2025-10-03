@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Article Reader</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Article Reader</h1>
+            <p>Enter a URL to read articles from Medium, Substack, or any newsletter</p>
+        </header>
+
+        <div class="input-section">
+            <input
+                type="url"
+                id="urlInput"
+                placeholder="Paste article URL here..."
+                required
+            >
+            <button id="loadBtn" onclick="loadArticle()">Load Article</button>
+        </div>
+
+        <div class="options-section">
+            <label class="checkbox-label">
+                <input type="checkbox" id="forceAdvanced">
+                <span>Force advanced mode (slower, bypasses paywalls)</span>
+            </label>
+        </div>
+
+        <div id="reader" class="reader-section">
+            <div class="placeholder">
+                <p>Enter a URL above to start reading</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
