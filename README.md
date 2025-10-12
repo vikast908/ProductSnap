@@ -1,146 +1,211 @@
-# Article Reader
+# Everything Product - PM Content Aggregator
 
-A web application for reading articles with **paywall bypass for supported sites**. Removes ads, popups, and provides a clean reading experience.
+A modern, glass-designed RSS feed aggregator specifically curated for Product Management content. Aggregates articles from 79+ PM sources across 11 categories with a beautiful, responsive interface.
 
-**⚠️ Important:** Modern paywalls (Medium, Substack) use server-side truncation and cannot be bypassed. This app works best with overlay-based paywalls.
+## ✨ Features
 
-## What Actually Works (2025 Reality Check)
+### 📰 **Content Aggregation**
+- **79+ RSS Feeds** from top PM sources (Mind the Product, Product Coalition, Lenny's Newsletter, etc.)
+- **11 Categories**: Product Strategy, AI/ML, Design, Analytics, Leadership, Growth, Career, Engineering, Case Studies, Frameworks, and General
+- **Automatic Updates** every 2 hours via cron jobs
+- **Full-text extraction** using Mozilla Readability for clean article previews
 
-### ✅ **Fully Supported (90%+ Success)**
-- **Forbes, Inc, Bloomberg** - Overlay paywalls are easily bypassed
-- **Local news sites** - Most use soft CSS-based paywalls
-- **WordPress blogs** - CSS/JavaScript restrictions
-- **Academic sites** - Content hidden with simple JavaScript
-- **Any site using client-side paywalls**
+### 🎨 **Modern Glass Design**
+- Glassmorphism/frosted glass aesthetic with RED color palette
+- Backdrop blur effects throughout the interface
+- Smooth transitions and hover animations
+- Fully responsive design for mobile and desktop
 
-### ⚠️ **Partially Supported (Preview Only)**
-- **Medium** - Only gets free preview (~500 chars). Full content is server-truncated since 2024
-- **Substack** - Only gets free preview. Paid content never sent to browser
-- **NYT, WSJ** - Metered paywall (you get your free articles, then blocked)
+### 🔍 **Powerful Filtering**
+- **Multi-select Category Filter** - Filter by multiple categories simultaneously
+- **Multi-select Time Filter** - Last week, month, 3 months, 6 months, year, or custom date range
+- **Multi-select Provider Filter** - Filter by specific content sources
+- **Real-time Search** - Debounced search across titles and content
+- **Smart Sorting** - Always sorted newest to oldest
 
-### ❌ **Not Supported (0% Success)**
-- **Hard paywalls** - Content never sent without valid subscription
-- **Login-required content** - Requires authentication
-- **Advanced bot detection** - Cloudflare Turnstile, reCAPTCHA
-- **Server-side paywalls** - Content truncated before transmission
+### 📱 **User Experience**
+- **Two View Modes**: Tiles and List views
+- **Instant Preview Pane** - Hover over articles to see content preview
+- **Collapsible Sidebar** - Toggle filters to maximize content space
+- **Pagination** - Smooth navigation through large article collections
+- **Keyboard Shortcuts** - Hover to preview articles instantly
 
-## Features
+## 🚀 Quick Start
 
-✅ **Dual-Mode Fetching**
-   - Fast basic fetch for open articles
-   - Advanced Puppeteer-based fetch for JavaScript-heavy sites
+### Installation
 
-✅ **Paywall Bypass** - Works for overlay/CSS-based paywalls:
-   - Removes subscription prompts and modals
-   - Re-enables scrolling
-   - Removes blur effects
-   - Blocks tracking scripts
+1. **Clone the repository**
+```bash
+git clone <your-repo-url>
+cd DemoRead
+```
 
-✅ **Mozilla Readability Integration** - Clean article extraction
-
-✅ **Clean Reading Experience** - Removes ads, popups, and distractions
-
-✅ **Mobile Responsive** - Works on all devices
-
-## Installation
-
-1. Install dependencies:
+2. **Install dependencies**
 ```bash
 npm install
 ```
 
-2. Start the server:
+3. **Set up the database**
+```bash
+npm run setup
+```
+
+4. **Start the aggregator** (collects articles)
+```bash
+npm run aggregator
+```
+
+5. **In a separate terminal, start the web server**
 ```bash
 npm start
 ```
 
-3. Open in browser:
+6. **Open in browser**
 ```
 http://localhost:3000
 ```
 
-## How It Works
+## 📦 Tech Stack
 
-### Dual-Mode Architecture
+### Backend
+- **Node.js** with Express
+- **RSS Parser** for feed aggregation
+- **LowDB** (JSON-based database)
+- **Mozilla Readability + JSDOM** for content extraction
+- **Node-Cron** for scheduled updates
+- **Cheerio** for HTML parsing
+- **Puppeteer** for JavaScript-heavy sites
 
-1. **Basic Mode (Default)**
-   - Fast HTTP fetch using Axios
-   - Mozilla Readability for content extraction
-   - ~1-2 seconds load time
+### Frontend
+- **Vanilla JavaScript** (ES6+)
+- **HTML5** with semantic markup
+- **CSS3** with glassmorphism design
+- **Custom Properties** for theming
+- **Backdrop-filter** for glass effects
 
-2. **Advanced Mode (Automatic Fallback)**
-   - Headless Chrome via Puppeteer
-   - JavaScript execution for dynamic content
-   - Paywall bypass for overlay-based paywalls
-   - ~5-10 seconds load time
-
-The app automatically tries advanced mode when it detects client-side paywalls.
-
-## Limitations
-
-**Why Medium/Substack Don't Work:**
-
-Modern paywalls (2024+) use **server-side content truncation**:
-1. Your browser requests an article
-2. Server checks if you're subscribed (checks cookies/session)
-3. If not subscribed, server only sends preview HTML
-4. Full article content **never leaves their database**
-5. No client-side trick can reveal content that was never transmitted
-
-This is like asking someone to read a page from a book that's locked in a vault - it's physically impossible.
-
-## Technical Stack
-
-- **Frontend**: Vanilla JavaScript, HTML5, CSS3
-- **Backend**: Node.js with Express
-- **HTTP Client**: Axios for basic fetching
-- **Browser Automation**: Puppeteer (headless Chrome)
-- **Content Extraction**: Mozilla Readability + JSDOM
-- **Timeout**: 30 seconds per request
-- **Redirects**: Follows up to 5 redirects
-
-## API Endpoints
-
-- `GET /fetch-article?url=<URL>` - Basic fetch (fast)
-- `GET /fetch-article-advanced?url=<URL>` - Puppeteer fetch (paywall bypass)
-
-## Testing Sites
-
-**Try these to see what works:**
-
-✅ **Forbes**: https://www.forbes.com (any article with overlay)
-✅ **Inc**: https://www.inc.com (overlay paywalls)
-⚠️ **Medium**: https://medium.com (only preview)
-⚠️ **Substack**: https://substack.com (only preview)
-
-## Ethical Considerations
-
-**Use Responsibly:**
-- This tool is for personal reading only
-- Bypassing paywalls may violate Terms of Service
-- Consider supporting quality journalism with subscriptions
-- Respect content creators
-
-**Legal Disclaimer:** This software is provided for educational purposes. Users are responsible for complying with website terms of service and applicable laws.
-
-## Project Structure
+## 🗂️ Project Structure
 
 ```
 DemoRead/
-├── index.html          # Main webpage
-├── style.css           # Styling
-├── script.js           # Frontend logic
-├── server.js           # Proxy server with paywall bypass
-├── package.json        # Dependencies
-├── README.md           # This file
-├── SETUP.md            # Installation guide
-└── PAYWALL_BYPASS.md   # Technical documentation
+├── aggregator-server.js      # Main backend with RSS aggregation
+├── database-setup.js          # Database initialization script
+├── package.json              # Dependencies and scripts
+├── content-aggregator.json   # LowDB database file
+├── public/
+│   └── index.html           # Frontend application (all-in-one)
+└── node_modules/            # Dependencies
 ```
 
-## License
+## 📊 Data Sources
+
+### Categories & Sources (79+ feeds)
+
+**Product Strategy** (11 feeds)
+- Mind the Product, Product Coalition, Lenny's Newsletter, Silicon Valley Product Group, etc.
+
+**AI & ML in Product** (7 feeds)
+- Google AI Blog, OpenAI Blog, Towards Data Science, etc.
+
+**Product Design** (8 feeds)
+- Nielsen Norman Group, UX Collective, Smashing Magazine, etc.
+
+**Analytics & Data** (6 feeds)
+- Amplitude Blog, Mixpanel Blog, Mode Analytics, etc.
+
+**Leadership** (8 feeds)
+- First Round Review, a16z, Harvard Business Review, etc.
+
+**Growth & Marketing** (7 feeds)
+- Reforge Blog, GrowthHackers, Product-Led Alliance, etc.
+
+**Career & Learning** (6 feeds)
+- Product School, ProductPlan, The Product Manager, etc.
+
+**Engineering & Technical** (8 feeds)
+- Martin Fowler, GitHub Blog, Stack Overflow Blog, etc.
+
+**Case Studies** (6 feeds)
+- Intercom Blog, Atlassian Blog, Stripe Blog, etc.
+
+**Frameworks & Tools** (6 feeds)
+- Aha! Blog, ProductPlan Blog, Roadmunk Blog, etc.
+
+**General Product Management** (6 feeds)
+- Product Hunt Blog, Product Manager HQ, The Product Folks, etc.
+
+## 🎨 Design System
+
+### Glass Design Tokens
+```css
+--glass-bg: hsl(0 0% 100% / 0.6);
+--glass-border: hsl(0 0% 100% / 0.2);
+--glass-sidebar: hsl(0 0% 100% / 0.4);
+--shadow-glass: 0 8px 32px 0 hsl(0 85% 60% / 0.1);
+--primary: hsl(0 85% 60%);  /* Vibrant Red */
+```
+
+### Key Visual Features
+- 10-20px backdrop blur for glass effect
+- Red gradient accents (0° to 340° hue)
+- Smooth cubic-bezier transitions
+- Hover states with transform and shadow changes
+
+## 🔧 Configuration
+
+### Update Frequency
+Edit the cron schedule in `aggregator-server.js`:
+```javascript
+cron.schedule('0 */2 * * *', () => {  // Every 2 hours
+    fetchAllFeeds();
+});
+```
+
+### Add New RSS Feeds
+Edit the `feeds` array in `aggregator-server.js`:
+```javascript
+{
+    name: 'Source Name',
+    url: 'https://example.com/rss',
+    category: 'Category Name'
+}
+```
+
+## 📝 NPM Scripts
+
+```bash
+npm start              # Start web server (port 3000)
+npm run aggregator     # Run RSS aggregator with scheduled updates
+npm run setup         # Initialize database structure
+```
+
+## 🌟 Features in Detail
+
+### Smart Preview System
+- Instant hover preview next to articles
+- Full-text extraction with Readability API
+- Code block syntax highlighting
+- Automatic content truncation for performance
+- Closes immediately when cursor leaves
+
+### Multi-Select Filters
+- Hold Ctrl/Cmd to select multiple options
+- Combine filters across categories, time, and providers
+- Real-time filtering without page reload
+- Visual feedback for selected options
+
+### Custom Date Range
+- Select from last 3 years of content
+- Date pickers with min/max validation
+- Apply button for custom range filtering
+
+## 🤝 Contributing
+
+This is a personal project for aggregating Product Management content. Feel free to fork and customize for your own needs!
+
+## 📄 License
 
 MIT
 
 ---
 
-**Built with frustration after realizing modern paywalls are actually well-designed.**
+**Built for Product Managers who want to stay updated with the latest PM content across the web.**

@@ -1,0 +1,391 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 0 70% 50%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 38 90% 50%;
+    --secondary-foreground: 0 0% 10%;
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 35%;
+    --accent: 38 90% 50%;
+    --accent-foreground: 0 0% 10%;
+    --destructive: 0 84.2% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 85%;
+    --input: 0 0% 85%;
+    --ring: 0 70% 50%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 0 5% 10%;
+    --foreground: 0 0% 98%;
+    --card: 0 5% 15%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 5% 15%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 70% 60%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 38 85% 60%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 5% 20%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 38 85% 60%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 5% 25%;
+    --input: 0 5% 25%;
+    --ring: 0 70% 60%;
+  }
+
+  .newspaper {
+    --background: 0 0% 95%;
+    --foreground: 0 0% 5%;
+    --card: 0 0% 98%;
+    --card-foreground: 0 0% 8%;
+    --popover: 0 0% 98%;
+    --popover-foreground: 0 0% 8%;
+    --primary: 0 0% 15%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 25%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 90%;
+    --muted-foreground: 0 0% 30%;
+    --accent: 0 0% 20%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84.2% 45%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 75%;
+    --input: 0 0% 80%;
+    --ring: 0 0% 20%;
+  }
+
+  .kindle {
+    --background: 40 35% 88%;
+    --foreground: 30 35% 10%;
+    --card: 40 40% 92%;
+    --card-foreground: 30 35% 12%;
+    --popover: 40 40% 92%;
+    --popover-foreground: 30 35% 12%;
+    --primary: 30 50% 30%;
+    --primary-foreground: 40 40% 98%;
+    --secondary: 35 40% 35%;
+    --secondary-foreground: 40 40% 98%;
+    --muted: 40 30% 85%;
+    --muted-foreground: 30 30% 25%;
+    --accent: 30 45% 30%;
+    --accent-foreground: 40 40% 98%;
+    --destructive: 0 70% 45%;
+    --destructive-foreground: 40 40% 98%;
+    --border: 40 25% 65%;
+    --input: 40 30% 75%;
+    --ring: 30 50% 30%;
+  }
+
+  /* Game of Thrones - Dark, medieval, iron and fire */
+  .got {
+    --background: 220 15% 12%;
+    --foreground: 0 0% 98%;
+    --card: 220 15% 25%;
+    --card-foreground: 0 0% 98%;
+    --popover: 220 15% 25%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 65% 50%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 220 20% 35%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 220 15% 30%;
+    --muted-foreground: 220 10% 75%;
+    --accent: 0 65% 50%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 15% 40%;
+    --input: 220 15% 30%;
+    --ring: 0 65% 50%;
+  }
+
+  /* Lord of the Rings - Earthy, Middle-earth inspired */
+  .lotr {
+    --background: 40 25% 92%;
+    --foreground: 25 45% 12%;
+    --card: 40 30% 96%;
+    --card-foreground: 25 45% 15%;
+    --popover: 40 30% 96%;
+    --popover-foreground: 25 45% 15%;
+    --primary: 120 35% 30%;
+    --primary-foreground: 40 30% 98%;
+    --secondary: 40 55% 40%;
+    --secondary-foreground: 25 45% 10%;
+    --muted: 40 20% 88%;
+    --muted-foreground: 25 35% 30%;
+    --accent: 120 35% 30%;
+    --accent-foreground: 40 30% 98%;
+    --destructive: 0 70% 45%;
+    --destructive-foreground: 40 30% 98%;
+    --border: 40 20% 70%;
+    --input: 40 20% 78%;
+    --ring: 120 35% 30%;
+  }
+
+  /* Harry Potter - Magical, Hogwarts colors */
+  .hp {
+    --background: 270 25% 15%;
+    --foreground: 45 90% 92%;
+    --card: 270 30% 28%;
+    --card-foreground: 45 90% 92%;
+    --popover: 270 30% 28%;
+    --popover-foreground: 45 90% 92%;
+    --primary: 0 70% 50%;
+    --primary-foreground: 45 90% 95%;
+    --secondary: 45 85% 60%;
+    --secondary-foreground: 270 30% 15%;
+    --muted: 270 20% 35%;
+    --muted-foreground: 45 70% 80%;
+    --accent: 45 85% 60%;
+    --accent-foreground: 270 30% 15%;
+    --destructive: 0 80% 60%;
+    --destructive-foreground: 45 90% 95%;
+    --border: 270 20% 45%;
+    --input: 270 20% 35%;
+    --ring: 45 85% 60%;
+  }
+
+  /* Amazon Forest - Lush, vibrant greens */
+  .amazon {
+    --background: 140 40% 20%;
+    --foreground: 140 30% 96%;
+    --card: 140 35% 35%;
+    --card-foreground: 140 30% 98%;
+    --popover: 140 35% 35%;
+    --popover-foreground: 140 30% 98%;
+    --primary: 140 60% 50%;
+    --primary-foreground: 140 35% 5%;
+    --secondary: 30 50% 50%;
+    --secondary-foreground: 140 30% 98%;
+    --muted: 140 30% 40%;
+    --muted-foreground: 140 20% 85%;
+    --accent: 140 60% 50%;
+    --accent-foreground: 140 35% 5%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 140 30% 98%;
+    --border: 140 30% 50%;
+    --input: 140 30% 40%;
+    --ring: 140 60% 50%;
+  }
+
+  /* Sahara Desert - Warm, sandy tones */
+  .sahara {
+    --background: 35 50% 85%;
+    --foreground: 25 50% 12%;
+    --card: 35 45% 90%;
+    --card-foreground: 25 50% 15%;
+    --popover: 35 45% 90%;
+    --popover-foreground: 25 50% 15%;
+    --primary: 30 75% 38%;
+    --primary-foreground: 35 45% 98%;
+    --secondary: 25 55% 40%;
+    --secondary-foreground: 35 45% 98%;
+    --muted: 35 40% 80%;
+    --muted-foreground: 25 40% 28%;
+    --accent: 30 75% 38%;
+    --accent-foreground: 35 45% 98%;
+    --destructive: 0 70% 45%;
+    --destructive-foreground: 35 45% 98%;
+    --border: 35 35% 60%;
+    --input: 35 35% 68%;
+    --ring: 30 75% 38%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Modern scrollbar styling */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.2) transparent;
+  }
+
+  *:hover {
+    scrollbar-color: hsl(var(--muted-foreground) / 0.4) transparent;
+  }
+
+  /* Webkit browsers (Chrome, Safari, Edge) */
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.2);
+    border-radius: 9999px;
+    transition: background-color 200ms;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.4);
+  }
+
+  /* Newspaper theme - serif fonts */
+  .newspaper body,
+  .newspaper h1,
+  .newspaper h2,
+  .newspaper h3,
+  .newspaper h4,
+  .newspaper h5,
+  .newspaper h6,
+  .newspaper p,
+  .newspaper div {
+    font-family: 'Georgia', 'Times New Roman', 'Times', serif;
+  }
+
+  /* Add newspaper texture effect */
+  .newspaper {
+    background-image:
+      repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.03) 0px,
+        rgba(0, 0, 0, 0.03) 1px,
+        transparent 1px,
+        transparent 2px
+      );
+  }
+
+  /* Kindle theme - comfortable reading font */
+  .kindle body,
+  .kindle p,
+  .kindle div {
+    font-family: 'Bookerly', 'Georgia', 'Palatino', serif;
+  }
+
+  /* Game of Thrones theme - Medieval, dramatic */
+  .got body,
+  .got h1,
+  .got h2,
+  .got h3,
+  .got h4,
+  .got h5,
+  .got h6 {
+    font-family: 'Cinzel', 'Trajan Pro', 'Times New Roman', serif;
+    letter-spacing: 0.5px;
+  }
+
+  .got {
+    background-image:
+      radial-gradient(circle at 20% 50%, rgba(139, 0, 0, 0.05) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(0, 0, 0, 0.3) 0%, transparent 50%);
+  }
+
+  /* Lord of the Rings theme - Elvish, elegant */
+  .lotr body,
+  .lotr h1,
+  .lotr h2,
+  .lotr h3,
+  .lotr h4,
+  .lotr h5,
+  .lotr h6 {
+    font-family: 'Aniron', 'Palatino', 'Book Antiqua', serif;
+  }
+
+  .lotr {
+    background-image:
+      repeating-linear-gradient(
+        90deg,
+        rgba(139, 90, 43, 0.02) 0px,
+        rgba(139, 90, 43, 0.02) 1px,
+        transparent 1px,
+        transparent 40px
+      ),
+      repeating-linear-gradient(
+        0deg,
+        rgba(34, 139, 34, 0.02) 0px,
+        rgba(34, 139, 34, 0.02) 1px,
+        transparent 1px,
+        transparent 40px
+      );
+  }
+
+  /* Harry Potter theme - Magical, whimsical */
+  .hp body,
+  .hp h1,
+  .hp h2,
+  .hp h3,
+  .hp h4,
+  .hp h5,
+  .hp h6 {
+    font-family: 'Luminari', 'Papyrus', 'Brush Script MT', cursive;
+  }
+
+  .hp {
+    background-image:
+      radial-gradient(circle at 10% 20%, rgba(255, 215, 0, 0.1) 0%, transparent 20%),
+      radial-gradient(circle at 90% 80%, rgba(139, 0, 0, 0.1) 0%, transparent 20%),
+      radial-gradient(circle at 50% 50%, rgba(75, 0, 130, 0.05) 0%, transparent 50%);
+  }
+
+  /* Amazon Forest theme - Natural, vibrant */
+  .amazon body {
+    font-family: 'Trebuchet MS', 'Verdana', sans-serif;
+  }
+
+  .amazon {
+    background-image:
+      repeating-linear-gradient(
+        45deg,
+        rgba(0, 100, 0, 0.05) 0px,
+        rgba(0, 100, 0, 0.05) 2px,
+        transparent 2px,
+        transparent 10px
+      ),
+      repeating-linear-gradient(
+        -45deg,
+        rgba(34, 139, 34, 0.05) 0px,
+        rgba(34, 139, 34, 0.05) 2px,
+        transparent 2px,
+        transparent 10px
+      );
+  }
+
+  /* Sahara Desert theme - Warm, textured */
+  .sahara body {
+    font-family: 'Palatino', 'Book Antiqua', serif;
+  }
+
+  .sahara {
+    background-image:
+      repeating-linear-gradient(
+        30deg,
+        rgba(210, 180, 140, 0.1) 0px,
+        rgba(210, 180, 140, 0.1) 1px,
+        transparent 1px,
+        transparent 3px
+      ),
+      repeating-linear-gradient(
+        -30deg,
+        rgba(222, 184, 135, 0.08) 0px,
+        rgba(222, 184, 135, 0.08) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+  }
+}

@@ -12,7 +12,13 @@
       "Bash(timeout:*)",
       "Bash(npm run aggregator:*)",
       "Bash(curl:*)",
-      "Bash(wsl:*)"
+      "Bash(wsl:*)",
+      "Bash(npm create:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tailwindcss init:*)",
+      "Bash(npm run dev)",
+      "Bash(npm uninstall:*)",
+      "Bash(test:*)"
     ],
     "deny": [],
     "ask": []

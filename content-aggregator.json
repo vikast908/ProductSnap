@@ -7,9 +7,9 @@
       "category": "Product Management",
       "description": "Leading product management community and content",
       "active": true,
-      "lastFetched": "2025-10-12T15:40:58.859Z",
+      "lastFetched": "2025-10-12T18:30:00.906Z",
       "fetchCount": 0,
-      "errorCount": 4,
+      "errorCount": 6,
       "createdAt": "2025-10-12T13:10:20.977Z"
     },
     {
@@ -19,8 +19,8 @@
       "category": "Product Management",
       "description": "Product management insights and stories",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:00.721Z",
-      "fetchCount": 4,
+      "lastFetched": "2025-10-12T18:30:02.808Z",
+      "fetchCount": 6,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:10:20.978Z"
     },
@@ -31,9 +31,9 @@
       "category": "Product Management",
       "description": "Product management education and insights",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:02.846Z",
+      "lastFetched": "2025-10-12T18:30:04.091Z",
       "fetchCount": 0,
-      "errorCount": 4,
+      "errorCount": 6,
       "createdAt": "2025-10-12T13:10:20.978Z"
     },
     {
@@ -43,8 +43,8 @@
       "category": "Product Management",
       "description": "Product and growth insights from Lenny Rachitsky",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:04.086Z",
-      "fetchCount": 4,
+      "lastFetched": "2025-10-12T18:30:05.352Z",
+      "fetchCount": 6,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:10:20.978Z"
     },
@@ -55,8 +55,8 @@
       "category": "Product Management",
       "description": "Product management best practices from Marty Cagan",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:05.686Z",
-      "fetchCount": 4,
+      "lastFetched": "2025-10-12T18:30:13.781Z",
+      "fetchCount": 6,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:10:20.979Z"
     },
@@ -67,8 +67,8 @@
       "category": "Product Strategy",
       "description": "Business strategy and tech analysis",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:07.351Z",
-      "fetchCount": 4,
+      "lastFetched": "2025-10-12T18:30:14.439Z",
+      "fetchCount": 6,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:10:20.979Z"
     },
@@ -79,8 +79,8 @@
       "category": "Product Management",
       "description": "Continuous product discovery insights",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:07.829Z",
-      "fetchCount": 4,
+      "lastFetched": "2025-10-12T18:30:14.987Z",
+      "fetchCount": 6,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:10:20.979Z"
     },
@@ -91,8 +91,8 @@
       "category": "Product Management",
       "description": "Product ownership and agile product management",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:10.190Z",
-      "fetchCount": 4,
+      "lastFetched": "2025-10-12T18:30:17.425Z",
+      "fetchCount": 6,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:10:20.980Z"
     },
@@ -103,8 +103,8 @@
       "category": "Product Management",
       "description": "Product and customer communication insights",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:11.766Z",
-      "fetchCount": 4,
+      "lastFetched": "2025-10-12T18:30:19.035Z",
+      "fetchCount": 6,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:10:20.980Z"
     },
@@ -115,9 +115,9 @@
       "category": "Product Management",
       "description": "Startup and product insights",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:13.869Z",
+      "lastFetched": "2025-10-12T18:30:21.410Z",
       "fetchCount": 0,
-      "errorCount": 4,
+      "errorCount": 6,
       "createdAt": "2025-10-12T13:10:20.980Z"
     },
     {
@@ -127,8 +127,8 @@
       "category": "Product Management",
       "description": "Product management articles on HackerNoon",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:14.552Z",
-      "fetchCount": 4,
+      "lastFetched": "2025-10-12T18:30:22.220Z",
+      "fetchCount": 6,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:10:20.981Z"
     },
@@ -139,8 +139,8 @@
       "category": "Product Management",
       "description": "Product management stories and insights",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:16.381Z",
-      "fetchCount": 4,
+      "lastFetched": "2025-10-12T18:30:24.077Z",
+      "fetchCount": 6,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:10:20.981Z"
     },
@@ -151,8 +151,8 @@
       "category": "Product Design",
       "description": "UX and product design articles",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:17.749Z",
-      "fetchCount": 4,
+      "lastFetched": "2025-10-12T18:30:25.399Z",
+      "fetchCount": 6,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:10:20.981Z"
     },
@@ -163,9 +163,9 @@
       "category": "Product Design",
       "description": "Product design insights from Airbnb",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:19.078Z",
+      "lastFetched": "2025-10-12T18:30:26.885Z",
       "fetchCount": 0,
-      "errorCount": 4,
+      "errorCount": 6,
       "createdAt": "2025-10-12T13:10:20.981Z"
     },
     {
@@ -175,8 +175,8 @@
       "category": "Product Engineering",
       "description": "Product and engineering insights from Spotify",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:20.633Z",
-      "fetchCount": 4,
+      "lastFetched": "2025-10-12T18:30:28.134Z",
+      "fetchCount": 6,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:10:20.982Z"
     },
@@ -187,9 +187,9 @@
       "category": "Product Engineering",
       "description": "Product and tech insights from Netflix",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:23.247Z",
+      "lastFetched": "2025-10-12T18:30:29.332Z",
       "fetchCount": 0,
-      "errorCount": 4,
+      "errorCount": 6,
       "createdAt": "2025-10-12T13:10:20.982Z"
     },
     {
@@ -199,8 +199,8 @@
       "category": "Product Engineering",
       "description": "Product engineering from Slack",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:23.718Z",
-      "fetchCount": 4,
+      "lastFetched": "2025-10-12T18:30:29.763Z",
+      "fetchCount": 6,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:10:20.982Z"
     },
@@ -211,9 +211,9 @@
       "category": "Product Analytics",
       "description": "Product analytics and insights",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:26.688Z",
+      "lastFetched": "2025-10-12T18:30:32.496Z",
       "fetchCount": 0,
-      "errorCount": 4,
+      "errorCount": 6,
       "createdAt": "2025-10-12T13:10:20.982Z"
     },
     {
@@ -223,9 +223,9 @@
       "category": "Product Analytics",
       "description": "Product analytics insights",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:27.568Z",
+      "lastFetched": "2025-10-12T18:30:33.507Z",
       "fetchCount": 0,
-      "errorCount": 4,
+      "errorCount": 6,
       "createdAt": "2025-10-12T13:10:20.983Z"
     },
     {
@@ -235,8 +235,8 @@
       "category": "Product Discovery",
       "description": "New products and product insights",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:32.948Z",
-      "fetchCount": 4,
+      "lastFetched": "2025-10-12T18:30:36.525Z",
+      "fetchCount": 6,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:10:20.983Z"
     },
@@ -247,9 +247,9 @@
       "category": "Product Management",
       "description": "PM training and insights",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:36.408Z",
+      "lastFetched": "2025-10-12T18:30:39.764Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.563Z"
     },
     {
@@ -259,9 +259,9 @@
       "category": "Product Management",
       "description": "PM best practices",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:37.205Z",
+      "lastFetched": "2025-10-12T18:30:40.586Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.565Z"
     },
     {
@@ -271,9 +271,9 @@
       "category": "Product Management",
       "description": "Former Google GV Partner",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:37.712Z",
+      "lastFetched": "2025-10-12T18:30:41.907Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.566Z"
     },
     {
@@ -283,9 +283,9 @@
       "category": "Product Management",
       "description": "Product Institute founder",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:38.479Z",
+      "lastFetched": "2025-10-12T18:30:43.241Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.568Z"
     },
     {
@@ -295,8 +295,8 @@
       "category": "Product Management",
       "description": "Product evangelist insights",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:39.245Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:30:44.731Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.569Z"
     },
@@ -307,8 +307,8 @@
       "category": "Product Strategy",
       "description": "Former Netflix VP Product",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:40.456Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:30:46.007Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.571Z"
     },
@@ -319,8 +319,8 @@
       "category": "Product Leadership",
       "description": "Former Facebook VP Design",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:41.446Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:30:46.987Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.572Z"
     },
@@ -331,9 +331,9 @@
       "category": "Product Management",
       "description": "Intercom co-founder",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:42.307Z",
+      "lastFetched": "2025-10-12T18:30:47.876Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.573Z"
     },
     {
@@ -343,9 +343,9 @@
       "category": "Product Strategy",
       "description": "WP Engine founder",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:43.198Z",
+      "lastFetched": "2025-10-12T18:30:48.850Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.575Z"
     },
     {
@@ -355,9 +355,9 @@
       "category": "Product Positioning",
       "description": "Positioning expert",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:45.378Z",
+      "lastFetched": "2025-10-12T18:30:50.780Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.576Z"
     },
     {
@@ -367,9 +367,9 @@
       "category": "Product Design",
       "description": "Dropbox design insights",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:46.181Z",
+      "lastFetched": "2025-10-12T18:30:51.336Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.577Z"
     },
     {
@@ -379,9 +379,9 @@
       "category": "Product Management",
       "description": "Work management insights",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:46.946Z",
+      "lastFetched": "2025-10-12T18:30:52.098Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.579Z"
     },
     {
@@ -391,9 +391,9 @@
       "category": "Product Management",
       "description": "Team collaboration tools",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:48.624Z",
+      "lastFetched": "2025-10-12T18:30:54.116Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.580Z"
     },
     {
@@ -403,9 +403,9 @@
       "category": "Product Management",
       "description": "Workspace innovation",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:49.389Z",
+      "lastFetched": "2025-10-12T18:30:54.869Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.581Z"
     },
     {
@@ -415,9 +415,9 @@
       "category": "Product Design",
       "description": "Design tool insights",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:50.225Z",
+      "lastFetched": "2025-10-12T18:30:56.167Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.582Z"
     },
     {
@@ -427,9 +427,9 @@
       "category": "Product Management",
       "description": "Issue tracking for builders",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:51.396Z",
+      "lastFetched": "2025-10-12T18:30:58.756Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.584Z"
     },
     {
@@ -439,9 +439,9 @@
       "category": "Product Collaboration",
       "description": "Visual collaboration",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:51.937Z",
+      "lastFetched": "2025-10-12T18:30:59.291Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.585Z"
     },
     {
@@ -451,8 +451,8 @@
       "category": "UX Research",
       "description": "UX research leaders",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:52.868Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:31:01.369Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.586Z"
     },
@@ -463,8 +463,8 @@
       "category": "Product Design",
       "description": "Web design & development",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:54.883Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:31:02.443Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.587Z"
     },
@@ -475,8 +475,8 @@
       "category": "UX Research",
       "description": "UX insights & research",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:57.112Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:31:04.631Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.588Z"
     },
@@ -487,8 +487,8 @@
       "category": "Product Design",
       "description": "Web standards & design",
       "active": true,
-      "lastFetched": "2025-10-12T15:41:57.658Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:31:05.100Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.591Z"
     },
@@ -499,8 +499,8 @@
       "category": "Product Design",
       "description": "Design & IA community",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:01.428Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:31:08.148Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.592Z"
     },
@@ -511,9 +511,9 @@
       "category": "Product Analytics",
       "description": "Customer data platform",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:06.440Z",
+      "lastFetched": "2025-10-12T18:31:09.683Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.593Z"
     },
     {
@@ -523,9 +523,9 @@
       "category": "Product Analytics",
       "description": "Digital analytics",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:07.072Z",
+      "lastFetched": "2025-10-12T18:31:10.324Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.595Z"
     },
     {
@@ -535,9 +535,9 @@
       "category": "Product Analytics",
       "description": "Open-source product analytics",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:07.939Z",
+      "lastFetched": "2025-10-12T18:31:10.710Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.596Z"
     },
     {
@@ -547,9 +547,9 @@
       "category": "Product Growth",
       "description": "Growth insights",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:09.397Z",
+      "lastFetched": "2025-10-12T18:31:11.940Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.597Z"
     },
     {
@@ -559,8 +559,8 @@
       "category": "Product Growth",
       "description": "Growth community",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:12.425Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:31:14.940Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.598Z"
     },
@@ -571,8 +571,8 @@
       "category": "Product Growth",
       "description": "a16z growth insights",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:14.611Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:31:16.824Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.599Z"
     },
@@ -583,9 +583,9 @@
       "category": "Product Growth",
       "description": "Reforge founder",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:16.081Z",
+      "lastFetched": "2025-10-12T18:31:17.710Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.600Z"
     },
     {
@@ -595,8 +595,8 @@
       "category": "Product Growth",
       "description": "Growth advisor",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:18.724Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:31:20.121Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.601Z"
     },
@@ -607,9 +607,9 @@
       "category": "Product Strategy",
       "description": "Andreessen Horowitz",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:19.657Z",
+      "lastFetched": "2025-10-12T18:31:21.246Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.602Z"
     },
     {
@@ -619,8 +619,8 @@
       "category": "Product Strategy",
       "description": "Startup accelerator insights",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:21.403Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:31:23.426Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.603Z"
     },
@@ -631,9 +631,9 @@
       "category": "Product Strategy",
       "description": "Network effects VC",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:22.588Z",
+      "lastFetched": "2025-10-12T18:31:24.611Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.604Z"
     },
     {
@@ -643,9 +643,9 @@
       "category": "Product Strategy",
       "description": "Cloud insights",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:24.353Z",
+      "lastFetched": "2025-10-12T18:31:25.175Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.605Z"
     },
     {
@@ -655,8 +655,8 @@
       "category": "Product Design",
       "description": "Design stories",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:25.040Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:31:25.994Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.606Z"
     },
@@ -667,8 +667,8 @@
       "category": "Product Management",
       "description": "Developer community",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:26.557Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:31:28.119Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.607Z"
     },
@@ -679,9 +679,9 @@
       "category": "Product Management",
       "description": "PM resources",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:34.239Z",
+      "lastFetched": "2025-10-12T18:31:28.962Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.608Z"
     },
     {
@@ -691,8 +691,8 @@
       "category": "Product Analytics",
       "description": "Data science insights",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:36.062Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:31:30.034Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.609Z"
     },
@@ -703,8 +703,8 @@
       "category": "Product Engineering",
       "description": "Engineering best practices",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:37.208Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:31:31.267Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.610Z"
     },
@@ -715,8 +715,8 @@
       "category": "Product Management",
       "description": "Startup insights",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:38.021Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:31:32.083Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.611Z"
     },
@@ -727,8 +727,8 @@
       "category": "Product Management",
       "description": "PM best practices",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:38.618Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:31:32.734Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.613Z"
     },
@@ -739,8 +739,8 @@
       "category": "Product Design",
       "description": "UX design community",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:39.789Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:31:33.801Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.615Z"
     },
@@ -751,9 +751,9 @@
       "category": "Product Design",
       "description": "Design bootcamp",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:41.746Z",
+      "lastFetched": "2025-10-12T18:31:36.066Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.616Z"
     },
     {
@@ -763,8 +763,8 @@
       "category": "Product Design",
       "description": "Design inspiration",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:42.979Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:31:37.441Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.618Z"
     },
@@ -775,9 +775,9 @@
       "category": "Product Management",
       "description": "Global PM events",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:44.482Z",
+      "lastFetched": "2025-10-12T18:31:38.815Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.619Z"
     },
     {
@@ -787,8 +787,8 @@
       "category": "Product Management",
       "description": "Roadmap software insights",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:46.015Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:31:40.498Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.620Z"
     },
@@ -799,8 +799,8 @@
       "category": "Product Management",
       "description": "Roadmap & strategy",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:48.532Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:31:41.924Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.621Z"
     },
@@ -811,9 +811,9 @@
       "category": "Product Management",
       "description": "Product experience platform",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:50.848Z",
+      "lastFetched": "2025-10-12T18:31:44.216Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.622Z"
     },
     {
@@ -823,9 +823,9 @@
       "category": "UX Research",
       "description": "User research insights",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:51.224Z",
+      "lastFetched": "2025-10-12T18:31:44.628Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.624Z"
     },
     {
@@ -835,9 +835,9 @@
       "category": "UX Research",
       "description": "User behavior insights",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:52.156Z",
+      "lastFetched": "2025-10-12T18:31:45.765Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.625Z"
     },
     {
@@ -847,9 +847,9 @@
       "category": "Product Experimentation",
       "description": "Experimentation platform",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:53.705Z",
+      "lastFetched": "2025-10-12T18:31:47.329Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.626Z"
     },
     {
@@ -859,8 +859,8 @@
       "category": "Product Engineering",
       "description": "Feature management",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:54.135Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:31:47.876Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.627Z"
     },
@@ -871,8 +871,8 @@
       "category": "Product Accessibility",
       "description": "Accessibility resources",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:56.317Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:31:48.912Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.628Z"
     },
@@ -883,8 +883,8 @@
       "category": "Product Accessibility",
       "description": "Web accessibility",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:59.133Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:31:51.480Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.629Z"
     },
@@ -895,9 +895,9 @@
       "category": "Product Innovation",
       "description": "AI product insights",
       "active": true,
-      "lastFetched": "2025-10-12T15:42:59.576Z",
+      "lastFetched": "2025-10-12T18:31:51.865Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.630Z"
     },
     {
@@ -907,9 +907,9 @@
       "category": "Product Innovation",
       "description": "Google AI research",
       "active": true,
-      "lastFetched": "2025-10-12T15:43:01.575Z",
+      "lastFetched": "2025-10-12T18:31:53.817Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.631Z"
     },
     {
@@ -919,8 +919,8 @@
       "category": "Product Innovation",
       "description": "Microsoft research",
       "active": true,
-      "lastFetched": "2025-10-12T15:43:03.409Z",
-      "fetchCount": 3,
+      "lastFetched": "2025-10-12T18:31:55.910Z",
+      "fetchCount": 5,
       "errorCount": 0,
       "createdAt": "2025-10-12T13:31:56.632Z"
     },
@@ -931,9 +931,9 @@
       "category": "Product Operations",
       "description": "Product-led growth",
       "active": true,
-      "lastFetched": "2025-10-12T15:43:03.893Z",
+      "lastFetched": "2025-10-12T18:31:56.391Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.633Z"
     },
     {
@@ -943,9 +943,9 @@
       "category": "Product Operations",
       "description": "Product operations",
       "active": true,
-      "lastFetched": "2025-10-12T15:43:04.418Z",
+      "lastFetched": "2025-10-12T18:31:56.920Z",
       "fetchCount": 0,
-      "errorCount": 3,
+      "errorCount": 5,
       "createdAt": "2025-10-12T13:31:56.634Z"
     }
   ],
@@ -22607,10 +22607,24 @@
       "pubDate": "2013-01-11T00:00:00.000Z",
       "fetchedAt": "2025-10-12T13:33:54.908Z",
       "imageUrl": null
+    },
+    {
+      "id": 1760293888132.166,
+      "feedId": 1760275916607.3308,
+      "feedName": "Dev.to Product",
+      "title": "How AI Helped Me Find the Joy in Product Management Again",
+      "link": "https://dev.to/bcornils/how-ai-helped-me-find-the-joy-in-product-management-again-20cj",
+      "description": "When I started on my journey to learn more about AI, I didn’t expect it to help me find the joy in my job again. I’ve been a product manager for about 20 years. I like the chaos, the people, finding that thing that makes users' lives better, and I enjoy the project management piece. I love trying to understand the community we are building for, the culture of the team, each team member's calculator, creating transparency so the team can 100% miss their delivery window and still have customers happy, and taking risks with the features. I love the chaos, but lately things have been off in the industry.\nI’ve been hearing all this hype around how AI is going to make my job obsolete. I’m not unique in that, but I can only talk about my experience. Now when presented with the notion of losing my job, I like to get curious. Why is AI better than a human? \nMy analysis so far it’s not. It’s a tool. It’s not a human replacement. I’ve seen influencers state that the only way Product is going to find work is if they are effective vibe coders. People who say this do not understand what Product is, nor do they understand what vibe coding is. \nFirst, what makes a good product manager? It is not a technical person who can create specs for the development team to code to. That’s actually a different job. It isn’t taking the directive from management and delivering exactly what they asked for. \nMy first role as a product manager, my VP said, “Your job as a Product Manager isn’t to be everyone’s best friend, it’s to deliver the right features to the customers and drive revenue.” As a people pleaser, this was a hard role to step into. You take a lot of hits, you will not make people happy, and you will have engineering managers take you aside to threaten or blame you for missed dates. That’s the job. \nI think of Product as the orchestrator. We need to have a technical understanding of the problem space and product, be able to do data analysis, gather customer feedback and requirements, prioritize, consider long-term vs short-term impacts, evaluate tradeoffs, communicate the impact across the organization, and be collaborative.\nFor me personally, it’s being humble, building trust with my team, and building trust across the organization. One person can’t fix the company culture. It's my job to help the team deliver value to our customers and grow revenue. If you are good at Product and the culture is bad, doing your job correctly can feel like a challenge. My job isn’t to be your buddy; it’s to ensure the right features are being delivered on time and those features drive revenue. You can do all of that without being a giant jerk face. \nI’ll follow up with specific ways to leverage AI for the core functions of Product:\nTechnical knowledge/expertise: Controversial take, I’m a terrible PM if I’m an expert in the product. AI can help me with my knowledge gaps. \nData analysis: Data is always the best but sometimes I need a non-deterministic system to find trends that aren’t obvious to me.\nAnalysis of customer feedback: Listening to customer feedback means I might bias what I hear to the features I think need work. \nRequirements: I hate writing PRDs not because they aren’t useful but because some companies have turned it into a flair competition. AI helps me create faster using my information. Usual caveats apply.\nTransparency: I can get the idea out of my head and use the non-determinism of AI to create a first look. This means I can use words, data, and images to help communicate the features to Engineering, UI/UX, CS, PS, Sales, and Marketing. \nThe last few years, there has been this trend that requires Product to be an Architect, customer 1. It frankly is a sentiment that has taken all the joy out of my job. I can be technical and not an expert in a niche tool. Really good Product Managers have roots in many other areas. Data analysts (me), Technical Writers, Developers, QA, Customer Success, Professional Services, Librarians, Researchers, and many more. Some of the most obscure backgrounds make some of the best Product Managers.  AI helped me remember why the human side of Product is the most critical and that my experience, which is not “technical,” which really means I’m not a developer, is valuable. Now I have another tool to help me deliver the right features and drive revenue.",
+      "content": "<p>When I started on my journey to learn more about AI, I didn’t expect it to help me find the joy in my job again. I’ve been a product manager for about 20 years. I like the chaos, the people, finding that thing that makes users' lives better, and I enjoy the project management piece. I love trying to understand the community we are building for, the culture of the team, each team member's calculator, creating transparency so the team can 100% miss their delivery window and still have customers happy, and taking risks with the features. I love the chaos, but lately things have been off in the industry.</p>\n\n<p>I’ve been hearing all this hype around how AI is going to make my job obsolete. I’m not unique in that, but I can only talk about my experience. Now when presented with the notion of losing my job, I like to get curious. Why is AI better than a human? </p>\n\n<p>My analysis so far it’s not. It’s a tool. It’s not a human replacement. I’ve seen influencers state that the only way Product is going to find work is if they are effective vibe coders. People who say this do not understand what Product is, nor do they understand what vibe coding is. </p>\n\n<p>First, what makes a good product manager? It is not a technical person who can create specs for the development team to code to. That’s actually a different job. It isn’t taking the directive from management and delivering exactly what they asked for. </p>\n\n<p>My first role as a product manager, my VP said, “Your job as a Product Manager isn’t to be everyone’s best friend, it’s to deliver the right features to the customers and drive revenue.” As a people pleaser, this was a hard role to step into. You take a lot of hits, you will not make people happy, and you will have engineering managers take you aside to threaten or blame you for missed dates. That’s the job. </p>\n\n<p>I think of Product as the orchestrator. We need to have a technical understanding of the problem space and product, be able to do data analysis, gather customer feedback and requirements, prioritize, consider long-term vs short-term impacts, evaluate tradeoffs, communicate the impact across the organization, and be collaborative.</p>\n\n<p>For me personally, it’s being humble, building trust with my team, and building trust across the organization. One person can’t fix the company culture. It's my job to help the team deliver value to our customers and grow revenue. If you are good at Product and the culture is bad, doing your job correctly can feel like a challenge. My job isn’t to be your buddy; it’s to ensure the right features are being delivered on time and those features drive revenue. You can do all of that without being a giant jerk face. </p>\n\n<p>I’ll follow up with specific ways to leverage AI for the core functions of Product:</p>\n\n<ul>\n<li>Technical knowledge/expertise: Controversial take, I’m a terrible PM if I’m an expert in the product. AI can help me with my knowledge gaps. </li>\n<li>Data analysis: Data is always the best but sometimes I need a non-deterministic system to find trends that aren’t obvious to me.</li>\n<li>Analysis of customer feedback: Listening to customer feedback means I might bias what I hear to the features I think need work. </li>\n<li>Requirements: I hate writing PRDs not because they aren’t useful but because some companies have turned it into a flair competition. AI helps me create faster using my information. Usual caveats apply.</li>\n<li>Transparency: I can get the idea out of my head and use the non-determinism of AI to create a first look. This means I can use words, data, and images to help communicate the features to Engineering, UI/UX, CS, PS, Sales, and Marketing. </li>\n</ul>\n\n<p>The last few years, there has been this trend that requires Product to be an Architect, customer 1. It frankly is a sentiment that has taken all the joy out of my job. I can be technical and not an expert in a niche tool. Really good Product Managers have roots in many other areas. Data analysts (me), Technical Writers, Developers, QA, Customer Success, Professional Services, Librarians, Researchers, and many more. Some of the most obscure backgrounds make some of the best Product Managers.  AI helped me remember why the human side of Product is the most critical and that my experience, which is not “technical,” which really means I’m not a developer, is valuable. Now I have another tool to help me deliver the right features and drive revenue. </p>\n\n",
+      "author": "bfuller",
+      "category": "Product Management",
+      "pubDate": "Sun, 12 Oct 2025 18:23:29 +0000",
+      "fetchedAt": "2025-10-12T18:31:28.132Z",
+      "imageUrl": null
     }
   ],
   "metadata": {
     "created": "2025-10-12T13:10:20.976Z",
-    "lastUpdate": "2025-10-12T15:43:04.735Z"
+    "lastUpdate": "2025-10-12T18:31:57.247Z"
   }
 }
