@@ -9,7 +9,10 @@
       "Bash(findstr:*)",
       "Bash(taskkill:*)",
       "Bash(node:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(npm run aggregator:*)",
+      "Bash(curl:*)",
+      "Bash(wsl:*)"
     ],
     "deny": [],
     "ask": []

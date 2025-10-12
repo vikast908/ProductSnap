@@ -1,10 +1,12 @@
 {
   "name": "demoread",
-  "version": "1.0.0",
-  "description": "Article reader web app",
-  "main": "server.js",
+  "version": "2.0.0",
+  "description": "Free Content Aggregator - The world's biggest database of free articles",
+  "main": "aggregator-server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "aggregator": "node aggregator-server.js",
+    "setup": "node database-setup.js"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -12,6 +14,10 @@
     "axios": "^1.6.0",
     "@mozilla/readability": "^0.5.0",
     "jsdom": "^23.0.0",
-    "puppeteer": "^21.0.0"
+    "puppeteer": "^21.0.0",
+    "rss-parser": "^3.13.0",
+    "lowdb": "^1.0.0",
+    "node-cron": "^3.0.3",
+    "cheerio": "^1.0.0-rc.12"
   }
 }
