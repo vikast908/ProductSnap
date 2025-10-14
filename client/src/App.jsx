@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -14,7 +14,6 @@ import { Filter, Search, X, ExternalLink, Linkedin, Copy, Check, ChevronDown, Ch
 
 function App() {
   const [articles, setArticles] = useState([])
-  const [filteredArticles, setFilteredArticles] = useState([])
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ totalArticles: 0, activeFeeds: 0, categories: 0 })
   const [searchQuery, setSearchQuery] = useState('')
@@ -23,6 +22,7 @@ function App() {
   const [currentPage, setCurrentPage] = useState(1)
   const [copiedLink, setCopiedLink] = useState(null)
   const [previewOpen, setPreviewOpen] = useState(null)
+  const [hoverTimeout, setHoverTimeout] = useState(null)
 
   // Filter state
   const [categories, setCategories] = useState([])
@@ -52,7 +52,6 @@ function App() {
         const providersData = await providersRes.json()
 
         setArticles(articlesData.articles || [])
-        setFilteredArticles(articlesData.articles || [])
         setStats(statsData)
         setCategories(categoriesData || [])
         setProviders(providersData || [])
@@ -66,85 +65,92 @@ function App() {
     fetchData()
   }, [])
 
-  // Handle filtering
-  useEffect(() => {
-    let filtered = [...articles]
-
-    // Search filter
-    if (searchQuery) {
-      filtered = filtered.filter(article =>
-        article.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        article.description?.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+  // Optimized filtering with useMemo - prevents unnecessary recalculations
+  const filteredArticles = useMemo(() => {
+    // Quick return if no filters
+    if (!searchQuery && selectedCategories.length === 0 && selectedProviders.length === 0 && selectedTimePeriod === 'all') {
+      return articles
     }
 
-    // Category filter
-    if (selectedCategories.length > 0) {
-      filtered = filtered.filter(article =>
-        selectedCategories.includes(article.category)
-      )
-    }
+    const searchLower = searchQuery.toLowerCase()
+    const now = new Date()
 
-    // Provider filter
-    if (selectedProviders.length > 0) {
-      filtered = filtered.filter(article =>
-        selectedProviders.includes(article.feedName)
-      )
-    }
-
-    // Time period filter
+    // Pre-calculate time threshold once
+    let timeThreshold = null
     if (selectedTimePeriod !== 'all') {
-      const now = new Date()
-      const articleDate = (article) => new Date(article.pubDate)
+      const days = {
+        'today': 0,
+        'week': 7,
+        'month': 30,
+        '3months': 90,
+        '6months': 180,
+        'year': 365
+      }[selectedTimePeriod]
 
-      switch (selectedTimePeriod) {
-        case 'today':
-          filtered = filtered.filter(article => {
-            const date = articleDate(article)
-            return date.toDateString() === now.toDateString()
-          })
-          break
-        case 'week':
-          filtered = filtered.filter(article => {
-            const date = articleDate(article)
-            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-            return date >= weekAgo
-          })
-          break
-        case 'month':
-          filtered = filtered.filter(article => {
-            const date = articleDate(article)
-            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-            return date >= monthAgo
-          })
-          break
-        case '3months':
-          filtered = filtered.filter(article => {
-            const date = articleDate(article)
-            const threeMonthsAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
-            return date >= threeMonthsAgo
-          })
-          break
-        case '6months':
-          filtered = filtered.filter(article => {
-            const date = articleDate(article)
-            const sixMonthsAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000)
-            return date >= sixMonthsAgo
-          })
-          break
-        case 'year':
-          filtered = filtered.filter(article => {
-            const date = articleDate(article)
-            const yearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
-            return date >= yearAgo
-          })
-          break
+      if (selectedTimePeriod === 'today') {
+        timeThreshold = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      } else {
+        timeThreshold = new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
       }
     }
 
-    setFilteredArticles(filtered)
-    setCurrentPage(1)
+    // Convert arrays to Sets for O(1) lookup
+    const categorySet = selectedCategories.length > 0 ? new Set(selectedCategories) : null
+    const providerSet = selectedProviders.length > 0 ? new Set(selectedProviders) : null
+
+    // Single-pass filtering for better performance
+    return articles.filter(article => {
+      // Category filter (fastest check first)
+      if (categorySet && !categorySet.has(article.category)) {
+        return false
+      }
+
+      // Provider filter
+      if (providerSet && !providerSet.has(article.feedName)) {
+        return false
+      }
+
+      // Search filter
+      if (searchQuery && !(
+        article.title?.toLowerCase().includes(searchLower) ||
+        article.description?.toLowerCase().includes(searchLower) ||
+        article.author?.toLowerCase().includes(searchLower) ||
+        article.feedName?.toLowerCase().includes(searchLower)
+      )) {
+        return false
+      }
+
+      // Time period filter
+      if (timeThreshold) {
+        const articleDate = new Date(article.pubDate)
+        if (selectedTimePeriod === 'today') {
+          if (articleDate.toDateString() !== now.toDateString()) {
+            return false
+          }
+        } else if (articleDate < timeThreshold) {
+          return false
+        }
+      }
+
+      return true
+    })
   }, [searchQuery, articles, selectedCategories, selectedProviders, selectedTimePeriod])
+
+  // Calculate dynamic stats based on filtered articles
+  const dynamicStats = useMemo(() => {
+    const uniqueCategories = new Set(filteredArticles.map(a => a.category))
+    const uniqueSources = new Set(filteredArticles.map(a => a.feedName))
+    return {
+      totalArticles: filteredArticles.length,
+      activeFeeds: uniqueSources.size,
+      categories: uniqueCategories.size
+    }
+  }, [filteredArticles])
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, selectedCategories, selectedProviders, selectedTimePeriod])
 
   // Theme handling
   useEffect(() => {
@@ -175,22 +181,51 @@ function App() {
     }
   }
 
-  // Filter handlers
-  const toggleCategory = (category) => {
+  // Optimized filter handlers with useCallback - prevents unnecessary re-renders
+  const toggleCategory = useCallback((category) => {
     setSelectedCategories(prev =>
       prev.includes(category)
         ? prev.filter(c => c !== category)
         : [...prev, category]
     )
-  }
+  }, [])
 
-  const toggleProvider = (provider) => {
+  const toggleProvider = useCallback((provider) => {
     setSelectedProviders(prev =>
       prev.includes(provider)
         ? prev.filter(p => p !== provider)
         : [...prev, provider]
     )
-  }
+  }, [])
+
+  // Debounced preview handler - waits 500ms before showing preview
+  const handlePreviewHover = useCallback((articleId) => {
+    // Clear any existing timeout
+    if (hoverTimeout) {
+      clearTimeout(hoverTimeout)
+    }
+
+    // Set new timeout - increased to 500ms to prevent accidental opens
+    const timeout = setTimeout(() => {
+      setPreviewOpen(articleId)
+    }, 500)
+
+    setHoverTimeout(timeout)
+  }, [hoverTimeout])
+
+  const handlePreviewLeave = useCallback(() => {
+    // Clear timeout if user moves away before preview opens
+    if (hoverTimeout) {
+      clearTimeout(hoverTimeout)
+      setHoverTimeout(null)
+    }
+    // Delay closing to prevent flickering when moving between button and popover
+    const closeTimeout = setTimeout(() => {
+      setPreviewOpen(null)
+    }, 150)
+
+    return () => clearTimeout(closeTimeout)
+  }, [hoverTimeout])
 
   const clearAllFilters = () => {
     setSelectedCategories([])
@@ -206,7 +241,7 @@ function App() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-amber-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center space-y-6">
           <div className="relative w-20 h-20 mx-auto">
             <div className="absolute inset-0 rounded-full border-4 border-primary/20"></div>
@@ -224,7 +259,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 via-orange-50 to-amber-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-gradient-to-r from-primary via-orange-500 to-secondary backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between px-4">
@@ -232,40 +267,43 @@ function App() {
             <h1 className="text-2xl font-bold text-white">Everything Product</h1>
             <div className="hidden md:flex items-center gap-4 text-sm text-white/90">
               <div className="flex items-center gap-2">
-                <span className="font-bold text-lg">{stats.totalArticles}</span>
+                <span className="font-bold text-lg">{dynamicStats.totalArticles}</span>
                 <span>Articles</span>
               </div>
               <Separator orientation="vertical" className="h-6 bg-white/20" />
               <div className="flex items-center gap-2">
-                <span className="font-bold text-lg">{stats.activeFeeds}</span>
-                <span>Feeds</span>
+                <span className="font-bold text-lg">{dynamicStats.activeFeeds}</span>
+                <span>Sources</span>
               </div>
               <Separator orientation="vertical" className="h-6 bg-white/20" />
               <div className="flex items-center gap-2">
-                <span className="font-bold text-lg">{stats.categories}</span>
+                <span className="font-bold text-lg">{dynamicStats.categories}</span>
                 <span>Categories</span>
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <Select value={theme} onValueChange={setTheme}>
-              <SelectTrigger className="w-48 bg-white/20 border-white/20 text-white">
-                <SelectValue placeholder="Theme" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="system">System</SelectItem>
-                <SelectItem value="light">Light</SelectItem>
-                <SelectItem value="dark">Dark</SelectItem>
-                <SelectItem value="newspaper">Newspaper</SelectItem>
-                <SelectItem value="kindle">Kindle</SelectItem>
-                <SelectItem value="got">Game of Thrones</SelectItem>
-                <SelectItem value="lotr">Lord of the Rings</SelectItem>
-                <SelectItem value="hp">Harry Potter</SelectItem>
-                <SelectItem value="amazon">Amazon Forest</SelectItem>
-                <SelectItem value="sahara">Sahara Desert</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-white/80 hidden md:inline">Theme:</span>
+              <Select value={theme} onValueChange={setTheme}>
+                <SelectTrigger className="w-44 bg-white/20 border-white/20 text-white">
+                  <SelectValue placeholder="Theme" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="system">System</SelectItem>
+                  <SelectItem value="light">Light</SelectItem>
+                  <SelectItem value="dark">Dark</SelectItem>
+                  <SelectItem value="newspaper">Newspaper</SelectItem>
+                  <SelectItem value="kindle">Kindle</SelectItem>
+                  <SelectItem value="got">Game of Thrones</SelectItem>
+                  <SelectItem value="lotr">Lord of the Rings</SelectItem>
+                  <SelectItem value="hp">Harry Potter</SelectItem>
+                  <SelectItem value="amazon">Amazon Forest</SelectItem>
+                  <SelectItem value="sahara">Sahara Desert</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
       </header>
@@ -274,28 +312,33 @@ function App() {
         {/* Sidebar */}
         {sidebarOpen && (
           <aside className="w-80 flex-shrink-0">
-            <Card className="sticky top-20 backdrop-blur-md bg-white/90 dark:bg-gray-800/90 shadow-xl border-2">
+            <Card className="sticky top-20 backdrop-blur-md bg-card shadow-xl border-2">
               <CardHeader className="pb-3 bg-gradient-to-r from-primary/5 to-secondary/5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-5 w-5 text-primary" />
-                    <h3 className="font-bold text-lg">Filters</h3>
-                    {(selectedCategories.length > 0 || selectedProviders.length > 0 || selectedTimePeriod !== 'all') && (
-                      <Badge variant="secondary" className="ml-2">
-                        {selectedCategories.length + selectedProviders.length + (selectedTimePeriod !== 'all' ? 1 : 0)}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {(selectedCategories.length > 0 || selectedProviders.length > 0 || selectedTimePeriod !== 'all') && (
-                      <Button variant="ghost" size="sm" onClick={clearAllFilters} className="h-8 px-3 text-xs hover:bg-destructive/10 hover:text-destructive">
-                        Clear All
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Filter className="h-5 w-5 text-primary" />
+                      <h3 className="font-bold text-lg">Filters</h3>
+                      {(selectedCategories.length > 0 || selectedProviders.length > 0 || selectedTimePeriod !== 'all') && (
+                        <Badge variant="secondary" className="ml-2">
+                          {selectedCategories.length + selectedProviders.length + (selectedTimePeriod !== 'all' ? 1 : 0)}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {(selectedCategories.length > 0 || selectedProviders.length > 0 || selectedTimePeriod !== 'all') && (
+                        <Button variant="ghost" size="sm" onClick={clearAllFilters} className="h-8 px-3 text-xs hover:bg-destructive/10 hover:text-destructive">
+                          Clear All
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)} className="hover:bg-muted">
+                        <X className="h-4 w-4" />
                       </Button>
-                    )}
-                    <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(false)} className="hover:bg-muted">
-                      <X className="h-4 w-4" />
-                    </Button>
+                    </div>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Select multiple options to show articles matching any of them (OR logic)
+                  </p>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4 p-4">
@@ -318,25 +361,37 @@ function App() {
                   </Button>
                   {categoriesExpanded && (
                     <ScrollArea className="h-52 rounded-lg border bg-muted/30 p-3">
-                      <div className="space-y-2.5 pr-2">
-                        {categories.map((cat) => (
-                          <div key={cat.category} className="flex items-center space-x-3 p-2 rounded hover:bg-background transition-colors">
-                            <Checkbox
-                              id={`cat-${cat.category}`}
-                              checked={selectedCategories.includes(cat.category)}
-                              onCheckedChange={() => toggleCategory(cat.category)}
-                            />
-                            <Label
-                              htmlFor={`cat-${cat.category}`}
-                              className="text-sm font-normal cursor-pointer flex-1 flex items-center justify-between"
+                      <div className="space-y-1.5 pr-2">
+                        {categories.map((cat) => {
+                          const isSelected = selectedCategories.includes(cat.category)
+                          return (
+                            <div
+                              key={cat.category}
+                              className={`flex items-center space-x-3 p-2 rounded cursor-pointer ${
+                                isSelected
+                                  ? 'bg-primary/10 border border-primary/30'
+                                  : 'hover:bg-background border border-transparent'
+                              }`}
+                              onClick={() => toggleCategory(cat.category)}
                             >
-                              <span>{cat.category}</span>
-                              <Badge variant="outline" className="ml-2 text-xs">
-                                {cat.count}
-                              </Badge>
-                            </Label>
-                          </div>
-                        ))}
+                              <Checkbox
+                                id={`cat-${cat.category}`}
+                                checked={isSelected}
+                                onCheckedChange={() => toggleCategory(cat.category)}
+                                className="pointer-events-none"
+                              />
+                              <Label
+                                htmlFor={`cat-${cat.category}`}
+                                className="text-sm cursor-pointer flex-1 flex items-center justify-between pointer-events-none"
+                              >
+                                <span className={isSelected ? 'font-medium' : 'font-normal'}>{cat.category}</span>
+                                <Badge variant={isSelected ? "default" : "outline"} className="ml-2 text-xs">
+                                  {cat.count}
+                                </Badge>
+                              </Label>
+                            </div>
+                          )
+                        })}
                       </div>
                     </ScrollArea>
                   )}
@@ -363,25 +418,37 @@ function App() {
                   </Button>
                   {providersExpanded && (
                     <ScrollArea className="h-52 rounded-lg border bg-muted/30 p-3">
-                      <div className="space-y-2.5 pr-2">
-                        {providers.map((provider) => (
-                          <div key={provider.id} className="flex items-center space-x-3 p-2 rounded hover:bg-background transition-colors">
-                            <Checkbox
-                              id={`prov-${provider.id}`}
-                              checked={selectedProviders.includes(provider.name)}
-                              onCheckedChange={() => toggleProvider(provider.name)}
-                            />
-                            <Label
-                              htmlFor={`prov-${provider.id}`}
-                              className="text-sm font-normal cursor-pointer flex-1 flex items-center justify-between"
+                      <div className="space-y-1.5 pr-2">
+                        {providers.map((provider) => {
+                          const isSelected = selectedProviders.includes(provider.name)
+                          return (
+                            <div
+                              key={provider.id}
+                              className={`flex items-center space-x-3 p-2 rounded cursor-pointer ${
+                                isSelected
+                                  ? 'bg-primary/10 border border-primary/30'
+                                  : 'hover:bg-background border border-transparent'
+                              }`}
+                              onClick={() => toggleProvider(provider.name)}
                             >
-                              <span className="truncate">{provider.name}</span>
-                              <Badge variant="outline" className="ml-2 text-xs flex-shrink-0">
-                                {provider.articleCount || 0}
-                              </Badge>
-                            </Label>
-                          </div>
-                        ))}
+                              <Checkbox
+                                id={`prov-${provider.id}`}
+                                checked={isSelected}
+                                onCheckedChange={() => toggleProvider(provider.name)}
+                                className="pointer-events-none"
+                              />
+                              <Label
+                                htmlFor={`prov-${provider.id}`}
+                                className="text-sm cursor-pointer flex-1 flex items-center justify-between pointer-events-none"
+                              >
+                                <span className={`truncate ${isSelected ? 'font-medium' : 'font-normal'}`}>{provider.name}</span>
+                                <Badge variant={isSelected ? "default" : "outline"} className="ml-2 text-xs flex-shrink-0">
+                                  {provider.articleCount || 0}
+                                </Badge>
+                              </Label>
+                            </div>
+                          )
+                        })}
                       </div>
                     </ScrollArea>
                   )}
@@ -442,10 +509,10 @@ function App() {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search articles..."
+                placeholder="Search by title, description, or author..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 backdrop-blur-sm bg-white/70 dark:bg-gray-800/70"
+                className="pl-10 backdrop-blur-sm bg-card"
               />
             </div>
           </div>
@@ -473,14 +540,17 @@ function App() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
               {paginatedArticles.map((article) => (
-                <Card key={article.id} className="group hover:shadow-2xl transition-all duration-300 backdrop-blur-sm bg-white/80 dark:bg-gray-800/80 hover:scale-[1.03] overflow-hidden border-2 hover:border-primary/50">
-                  <div className="h-1.5 w-full bg-gradient-to-r from-primary via-orange-500 to-secondary opacity-0 group-hover:opacity-100 transition-opacity" />
-
+                <Card key={article.id} className="group hover:shadow-2xl transition-all duration-300 backdrop-blur-sm bg-card hover:scale-[1.03] overflow-hidden border-2 hover:border-primary/50">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <span className="text-sm text-muted-foreground font-medium">
-                      {article.author || article.feedName}
-                    </span>
+                    <div className="flex flex-col gap-1 min-w-0 flex-1">
+                      <span className="text-sm font-medium truncate">
+                        {article.author || article.feedName}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDate(article.pubDate)}
+                      </span>
+                    </div>
                     <Badge className="shrink-0">{article.category}</Badge>
                   </div>
                   <h3 className="font-semibold text-lg leading-tight line-clamp-2 group-hover:text-primary transition-colors">
@@ -489,17 +559,14 @@ function App() {
                 </CardHeader>
 
                 <CardContent className="pb-3">
-                  {article.description && (
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {article.description}
-                    </p>
-                  )}
-                  <p className="text-xs text-muted-foreground mt-2">{article.feedName}</p>
+                  <p className="text-sm text-muted-foreground line-clamp-3">
+                    {article.description || 'No description available'}
+                  </p>
                 </CardContent>
 
-                <CardFooter className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">
-                    {formatDate(article.pubDate)}
+                <CardFooter className="flex items-center justify-between pt-3 border-t">
+                  <span className="text-xs text-muted-foreground truncate flex-1">
+                    {article.feedName}
                   </span>
 
                   <div className="flex items-center gap-1">
@@ -532,20 +599,54 @@ function App() {
                         <Copy className="h-4 w-4" />
                       )}
                     </Button>
-                    <Popover open={previewOpen === article.id} onOpenChange={(open) => setPreviewOpen(open ? article.id : null)}>
+                    <Popover
+                      open={previewOpen === article.id}
+                      onOpenChange={(open) => {
+                        if (!open) {
+                          if (hoverTimeout) {
+                            clearTimeout(hoverTimeout)
+                            setHoverTimeout(null)
+                          }
+                          setPreviewOpen(null)
+                        }
+                      }}
+                    >
                       <PopoverTrigger asChild>
                         <Button
                           size="sm"
                           className="ml-2"
-                          onMouseEnter={() => setPreviewOpen(article.id)}
+                          onMouseEnter={() => handlePreviewHover(article.id)}
+                          onMouseLeave={() => {
+                            if (hoverTimeout) {
+                              clearTimeout(hoverTimeout)
+                              setHoverTimeout(null)
+                            }
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (previewOpen === article.id) {
+                              setPreviewOpen(null)
+                            }
+                            window.open(article.link, '_blank')
+                          }}
+                          title="Hover to preview • Click to open in new tab"
                         >
                           Read
-                          <ExternalLink className="ml-1 h-3 w-3" />
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent
                         className="w-[700px] p-0 shadow-2xl"
-                        onMouseLeave={() => setPreviewOpen(null)}
+                        onMouseEnter={() => {
+                          // Keep preview open when hovering over it
+                          if (hoverTimeout) {
+                            clearTimeout(hoverTimeout)
+                            setHoverTimeout(null)
+                          }
+                        }}
+                        onMouseLeave={() => {
+                          // Close preview when leaving the popover
+                          setPreviewOpen(null)
+                        }}
                         side="top"
                         align="end"
                       >
@@ -564,8 +665,8 @@ function App() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex flex-col items-center gap-4 py-8">
-              <div className="text-sm text-muted-foreground">
+            <div className="flex flex-col items-center gap-4 py-8 bg-gradient-to-r from-primary/5 via-orange-500/5 to-secondary/5 rounded-lg p-6 border-2 border-primary/10">
+              <div className="text-sm font-medium">
                 Showing {startIdx + 1}-{Math.min(startIdx + articlesPerPage, filteredArticles.length)} of {filteredArticles.length} articles
               </div>
               <div className="flex items-center gap-2">
@@ -573,7 +674,7 @@ function App() {
                   variant="outline"
                   disabled={currentPage === 1}
                   onClick={() => setCurrentPage(currentPage - 1)}
-                  className="px-6"
+                  className="px-6 font-medium"
                 >
                   Previous
                 </Button>
@@ -594,7 +695,7 @@ function App() {
                         key={pageNum}
                         variant={currentPage === pageNum ? "default" : "outline"}
                         onClick={() => setCurrentPage(pageNum)}
-                        className="min-w-[40px]"
+                        className="min-w-[40px] font-medium"
                       >
                         {pageNum}
                       </Button>
@@ -605,7 +706,7 @@ function App() {
                   variant="outline"
                   disabled={currentPage === totalPages}
                   onClick={() => setCurrentPage(currentPage + 1)}
-                  className="px-6"
+                  className="px-6 font-medium"
                 >
                   Next
                 </Button>

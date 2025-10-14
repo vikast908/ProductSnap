@@ -4,24 +4,24 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 0 0% 94%;
     --foreground: 0 0% 10%;
-    --card: 0 0% 100%;
+    --card: 0 0% 98%;
     --card-foreground: 0 0% 10%;
-    --popover: 0 0% 100%;
+    --popover: 0 0% 98%;
     --popover-foreground: 0 0% 10%;
     --primary: 0 70% 50%;
     --primary-foreground: 0 0% 98%;
     --secondary: 38 90% 50%;
     --secondary-foreground: 0 0% 10%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 35%;
+    --muted: 0 0% 88%;
+    --muted-foreground: 0 0% 40%;
     --accent: 38 90% 50%;
     --accent-foreground: 0 0% 10%;
     --destructive: 0 84.2% 50%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 85%;
-    --input: 0 0% 85%;
+    --border: 0 0% 80%;
+    --input: 0 0% 90%;
     --ring: 0 70% 50%;
     --radius: 0.5rem;
   }
@@ -29,182 +29,182 @@
   .dark {
     --background: 0 5% 10%;
     --foreground: 0 0% 98%;
-    --card: 0 5% 15%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 5% 15%;
-    --popover-foreground: 0 0% 98%;
+    --card: 0 5% 18%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 5% 18%;
+    --popover-foreground: 0 0% 95%;
     --primary: 0 70% 60%;
     --primary-foreground: 0 0% 98%;
     --secondary: 38 85% 60%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 5% 20%;
-    --muted-foreground: 0 0% 63.9%;
+    --secondary-foreground: 0 5% 10%;
+    --muted: 0 5% 25%;
+    --muted-foreground: 0 0% 70%;
     --accent: 38 85% 60%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --accent-foreground: 0 5% 10%;
+    --destructive: 0 70% 55%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 5% 25%;
+    --border: 0 5% 30%;
     --input: 0 5% 25%;
     --ring: 0 70% 60%;
   }
 
   .newspaper {
-    --background: 0 0% 95%;
+    --background: 0 0% 88%;
     --foreground: 0 0% 5%;
-    --card: 0 0% 98%;
-    --card-foreground: 0 0% 8%;
-    --popover: 0 0% 98%;
-    --popover-foreground: 0 0% 8%;
+    --card: 0 0% 93%;
+    --card-foreground: 0 0% 10%;
+    --popover: 0 0% 93%;
+    --popover-foreground: 0 0% 10%;
     --primary: 0 0% 15%;
     --primary-foreground: 0 0% 98%;
     --secondary: 0 0% 25%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 90%;
-    --muted-foreground: 0 0% 30%;
+    --muted: 0 0% 82%;
+    --muted-foreground: 0 0% 35%;
     --accent: 0 0% 20%;
     --accent-foreground: 0 0% 98%;
     --destructive: 0 84.2% 45%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 75%;
-    --input: 0 0% 80%;
+    --border: 0 0% 70%;
+    --input: 0 0% 85%;
     --ring: 0 0% 20%;
   }
 
   .kindle {
-    --background: 40 35% 88%;
+    --background: 40 30% 82%;
     --foreground: 30 35% 10%;
-    --card: 40 40% 92%;
+    --card: 40 35% 88%;
     --card-foreground: 30 35% 12%;
-    --popover: 40 40% 92%;
+    --popover: 40 35% 88%;
     --popover-foreground: 30 35% 12%;
     --primary: 30 50% 30%;
     --primary-foreground: 40 40% 98%;
     --secondary: 35 40% 35%;
     --secondary-foreground: 40 40% 98%;
-    --muted: 40 30% 85%;
-    --muted-foreground: 30 30% 25%;
+    --muted: 40 25% 78%;
+    --muted-foreground: 30 40% 28%;
     --accent: 30 45% 30%;
     --accent-foreground: 40 40% 98%;
     --destructive: 0 70% 45%;
     --destructive-foreground: 40 40% 98%;
-    --border: 40 25% 65%;
+    --border: 40 25% 62%;
     --input: 40 30% 75%;
     --ring: 30 50% 30%;
   }
 
   /* Game of Thrones - Dark, medieval, iron and fire */
   .got {
-    --background: 220 15% 12%;
-    --foreground: 0 0% 98%;
-    --card: 220 15% 25%;
-    --card-foreground: 0 0% 98%;
-    --popover: 220 15% 25%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 65% 50%;
+    --background: 250 10% 15%;
+    --foreground: 0 0% 95%;
+    --card: 250 10% 23%;
+    --card-foreground: 0 0% 92%;
+    --popover: 250 10% 23%;
+    --popover-foreground: 0 0% 92%;
+    --primary: 0 70% 55%;
     --primary-foreground: 0 0% 98%;
-    --secondary: 220 20% 35%;
+    --secondary: 250 12% 45%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 220 15% 30%;
-    --muted-foreground: 220 10% 75%;
-    --accent: 0 65% 50%;
+    --muted: 250 8% 28%;
+    --muted-foreground: 250 5% 72%;
+    --accent: 0 70% 55%;
     --accent-foreground: 0 0% 98%;
     --destructive: 0 75% 55%;
     --destructive-foreground: 0 0% 98%;
-    --border: 220 15% 40%;
-    --input: 220 15% 30%;
-    --ring: 0 65% 50%;
+    --border: 250 8% 35%;
+    --input: 250 8% 28%;
+    --ring: 0 70% 55%;
   }
 
   /* Lord of the Rings - Earthy, Middle-earth inspired */
   .lotr {
-    --background: 40 25% 92%;
+    --background: 40 25% 85%;
     --foreground: 25 45% 12%;
-    --card: 40 30% 96%;
+    --card: 40 30% 90%;
     --card-foreground: 25 45% 15%;
-    --popover: 40 30% 96%;
+    --popover: 40 30% 90%;
     --popover-foreground: 25 45% 15%;
     --primary: 120 35% 30%;
     --primary-foreground: 40 30% 98%;
     --secondary: 40 55% 40%;
     --secondary-foreground: 25 45% 10%;
-    --muted: 40 20% 88%;
-    --muted-foreground: 25 35% 30%;
+    --muted: 40 20% 80%;
+    --muted-foreground: 25 45% 32%;
     --accent: 120 35% 30%;
     --accent-foreground: 40 30% 98%;
     --destructive: 0 70% 45%;
     --destructive-foreground: 40 30% 98%;
-    --border: 40 20% 70%;
+    --border: 40 20% 65%;
     --input: 40 20% 78%;
     --ring: 120 35% 30%;
   }
 
-  /* Harry Potter - Magical, Hogwarts colors */
+  /* Harry Potter - Magical, Hogwarts colors (Light Midnight Blue & Ancient Gold) */
   .hp {
-    --background: 270 25% 15%;
-    --foreground: 45 90% 92%;
-    --card: 270 30% 28%;
-    --card-foreground: 45 90% 92%;
-    --popover: 270 30% 28%;
-    --popover-foreground: 45 90% 92%;
-    --primary: 0 70% 50%;
-    --primary-foreground: 45 90% 95%;
-    --secondary: 45 85% 60%;
-    --secondary-foreground: 270 30% 15%;
-    --muted: 270 20% 35%;
-    --muted-foreground: 45 70% 80%;
-    --accent: 45 85% 60%;
-    --accent-foreground: 270 30% 15%;
-    --destructive: 0 80% 60%;
-    --destructive-foreground: 45 90% 95%;
-    --border: 270 20% 45%;
-    --input: 270 20% 35%;
-    --ring: 45 85% 60%;
+    --background: 229 45% 88%;
+    --foreground: 229 55% 20%;
+    --card: 229 40% 94%;
+    --card-foreground: 229 50% 18%;
+    --popover: 229 40% 94%;
+    --popover-foreground: 229 50% 18%;
+    --primary: 42 51% 45%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 190 40% 50%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 229 35% 85%;
+    --muted-foreground: 229 40% 35%;
+    --accent: 42 51% 45%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 229 35% 75%;
+    --input: 229 40% 92%;
+    --ring: 42 51% 45%;
   }
 
   /* Amazon Forest - Lush, vibrant greens */
   .amazon {
-    --background: 140 40% 20%;
-    --foreground: 140 30% 96%;
-    --card: 140 35% 35%;
-    --card-foreground: 140 30% 98%;
-    --popover: 140 35% 35%;
-    --popover-foreground: 140 30% 98%;
-    --primary: 140 60% 50%;
-    --primary-foreground: 140 35% 5%;
-    --secondary: 30 50% 50%;
-    --secondary-foreground: 140 30% 98%;
-    --muted: 140 30% 40%;
-    --muted-foreground: 140 20% 85%;
-    --accent: 140 60% 50%;
-    --accent-foreground: 140 35% 5%;
+    --background: 140 40% 18%;
+    --foreground: 140 25% 92%;
+    --card: 140 30% 25%;
+    --card-foreground: 140 20% 95%;
+    --popover: 140 30% 25%;
+    --popover-foreground: 140 20% 95%;
+    --primary: 140 65% 55%;
+    --primary-foreground: 140 40% 8%;
+    --secondary: 30 60% 55%;
+    --secondary-foreground: 140 40% 8%;
+    --muted: 140 25% 32%;
+    --muted-foreground: 140 15% 75%;
+    --accent: 140 65% 55%;
+    --accent-foreground: 140 40% 8%;
     --destructive: 0 70% 55%;
-    --destructive-foreground: 140 30% 98%;
-    --border: 140 30% 50%;
-    --input: 140 30% 40%;
-    --ring: 140 60% 50%;
+    --destructive-foreground: 140 20% 95%;
+    --border: 140 25% 38%;
+    --input: 140 25% 32%;
+    --ring: 140 65% 55%;
   }
 
   /* Sahara Desert - Warm, sandy tones */
   .sahara {
-    --background: 35 50% 85%;
+    --background: 35 45% 80%;
     --foreground: 25 50% 12%;
-    --card: 35 45% 90%;
+    --card: 35 40% 86%;
     --card-foreground: 25 50% 15%;
-    --popover: 35 45% 90%;
+    --popover: 35 40% 86%;
     --popover-foreground: 25 50% 15%;
-    --primary: 30 75% 38%;
+    --primary: 30 70% 42%;
     --primary-foreground: 35 45% 98%;
-    --secondary: 25 55% 40%;
+    --secondary: 25 60% 42%;
     --secondary-foreground: 35 45% 98%;
-    --muted: 35 40% 80%;
-    --muted-foreground: 25 40% 28%;
-    --accent: 30 75% 38%;
+    --muted: 35 35% 75%;
+    --muted-foreground: 25 50% 32%;
+    --accent: 30 70% 42%;
     --accent-foreground: 35 45% 98%;
     --destructive: 0 70% 45%;
     --destructive-foreground: 35 45% 98%;
-    --border: 35 35% 60%;
-    --input: 35 35% 68%;
-    --ring: 30 75% 38%;
+    --border: 35 30% 62%;
+    --input: 35 35% 75%;
+    --ring: 30 70% 42%;
   }
 }
 

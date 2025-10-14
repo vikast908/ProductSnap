@@ -30,7 +30,7 @@ const db = low(adapter);
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'client', 'dist')));
 
 // Comprehensive Product Management RSS Feeds
 const PM_FEEDS = [
@@ -532,6 +532,310 @@ const PM_FEEDS = [
     url: 'https://www.productops.com/blog-feed.xml',
     category: 'Product Operations',
     description: 'Product operations'
+  },
+
+  // ===== MORE PM THOUGHT LEADERS =====
+  {
+    name: 'Shreyas Doshi',
+    url: 'https://twitter.com/shreyas/feed',
+    category: 'Product Leadership',
+    description: 'Product leadership insights'
+  },
+  {
+    name: 'Nir Eyal',
+    url: 'https://www.nirandfar.com/feed/',
+    category: 'Product Strategy',
+    description: 'Behavioral design, author of Hooked'
+  },
+  {
+    name: 'Dan Olsen',
+    url: 'https://www.product-frameworks.com/feed',
+    category: 'Product Management',
+    description: 'Lean Product Playbook author'
+  },
+  {
+    name: 'Jeff Gothelf',
+    url: 'https://jeffgothelf.com/blog/feed/',
+    category: 'Product Design',
+    description: 'Lean UX co-author'
+  },
+  {
+    name: 'Josh Elman',
+    url: 'https://joshelman.substack.com/feed',
+    category: 'Product Management',
+    description: 'ex-Twitter, LinkedIn PM'
+  },
+  {
+    name: 'Claire Suellentrop',
+    url: 'https://www.clairevo.com/feed',
+    category: 'Product Management',
+    description: 'User onboarding expert'
+  },
+  {
+    name: 'Sarah Tavel',
+    url: 'https://sarahtavel.medium.com/feed',
+    category: 'Product Strategy',
+    description: 'Benchmark Capital partner'
+  },
+  {
+    name: 'C Todd Lombardo',
+    url: 'https://ctoddinlombardo.medium.com/feed',
+    category: 'Product Management',
+    description: 'Product Roadmaps Relaunched author'
+  },
+  {
+    name: 'Jackie Bavaro',
+    url: 'https://jackiebavaro.substack.com/feed',
+    category: 'Product Management',
+    description: 'Asana PM, interviewing expert'
+  },
+  {
+    name: 'Leah Tharin',
+    url: 'https://leahtharin.com/feed/',
+    category: 'Product Management',
+    description: 'Product leadership coach'
+  },
+  {
+    name: 'Itamar Gilad',
+    url: 'https://itamargilad.com/feed/',
+    category: 'Product Management',
+    description: 'Evidence-guided product management'
+  },
+  {
+    name: 'Hope Gurion',
+    url: 'https://www.hopegurion.com/feed',
+    category: 'Product Operations',
+    description: 'Product Ops pioneer'
+  },
+
+  // ===== INTERNATIONAL PM VOICES =====
+  {
+    name: 'Product Management IRL',
+    url: 'https://productmanagementirl.com/feed/',
+    category: 'Product Management',
+    description: 'Real-world PM stories'
+  },
+  {
+    name: 'Product Coalition Europe',
+    url: 'https://productcoalition.com/tagged/europe/feed',
+    category: 'Product Management',
+    description: 'European PM perspectives'
+  },
+  {
+    name: 'ProductTank',
+    url: 'https://www.mindtheproduct.com/producttank/feed/',
+    category: 'Product Management',
+    description: 'Global PM meetup network'
+  },
+
+  // ===== B2B & ENTERPRISE PRODUCT =====
+  {
+    name: 'Product-Led Institute',
+    url: 'https://www.productled.com/blog/feed',
+    category: 'Product-Led Growth',
+    description: 'PLG strategies'
+  },
+  {
+    name: 'OpenView Partners',
+    url: 'https://openviewpartners.com/blog/feed/',
+    category: 'Product Strategy',
+    description: 'B2B SaaS insights'
+  },
+  {
+    name: 'SaaS Capital',
+    url: 'https://www.saas-capital.com/blog-feed/',
+    category: 'Product Strategy',
+    description: 'SaaS metrics & strategy'
+  },
+  {
+    name: 'ChartMogul Blog',
+    url: 'https://chartmogul.com/blog/feed/',
+    category: 'Product Analytics',
+    description: 'SaaS analytics & metrics'
+  },
+  {
+    name: 'ProfitWell Blog',
+    url: 'https://www.profitwell.com/recur/feed',
+    category: 'Product Strategy',
+    description: 'Subscription metrics'
+  },
+
+  // ===== MOBILE & APP PRODUCT =====
+  {
+    name: 'App Annie Insights',
+    url: 'https://www.data.ai/en/insights/feed/',
+    category: 'Mobile Product',
+    description: 'Mobile app intelligence'
+  },
+  {
+    name: 'Mobile Growth Stack',
+    url: 'https://www.mobilegrowthstack.com/feed/',
+    category: 'Mobile Product',
+    description: 'Mobile app growth'
+  },
+  {
+    name: 'Appcues Blog',
+    url: 'https://www.appcues.com/blog/feed',
+    category: 'Product Management',
+    description: 'User onboarding & adoption'
+  },
+
+  // ===== PLATFORM & API PRODUCT =====
+  {
+    name: 'Postman Blog',
+    url: 'https://blog.postman.com/feed/',
+    category: 'API Product',
+    description: 'API development platform'
+  },
+  {
+    name: 'Stripe Blog',
+    url: 'https://stripe.com/blog/feed.rss',
+    category: 'API Product',
+    description: 'Payment platform insights'
+  },
+  {
+    name: 'Twilio Blog',
+    url: 'https://www.twilio.com/blog/feed',
+    category: 'API Product',
+    description: 'Communications platform'
+  },
+
+  // ===== SECURITY & PRIVACY IN PRODUCT =====
+  {
+    name: 'OWASP',
+    url: 'https://owasp.org/www-community/feed.xml',
+    category: 'Product Security',
+    description: 'Web application security'
+  },
+  {
+    name: 'IAPP Privacy Blog',
+    url: 'https://iapp.org/news/feed/',
+    category: 'Product Privacy',
+    description: 'Privacy professionals'
+  },
+
+  // ===== DEVELOPER EXPERIENCE =====
+  {
+    name: 'Martin Fowler',
+    url: 'https://martinfowler.com/feed.atom',
+    category: 'Product Engineering',
+    description: 'Software architecture'
+  },
+  {
+    name: 'GitHub Blog',
+    url: 'https://github.blog/feed/',
+    category: 'Developer Tools',
+    description: 'Developer platform insights'
+  },
+  {
+    name: 'Stack Overflow Blog',
+    url: 'https://stackoverflow.blog/feed/',
+    category: 'Developer Community',
+    description: 'Developer community insights'
+  },
+  {
+    name: 'HashiCorp Blog',
+    url: 'https://www.hashicorp.com/blog/feed.xml',
+    category: 'DevOps Product',
+    description: 'Infrastructure automation'
+  },
+
+  // ===== PRODUCT COMMUNITIES & AGGREGATORS =====
+  {
+    name: 'Product Hunt Daily',
+    url: 'https://www.producthunt.com/feed',
+    category: 'Product Discovery',
+    description: 'Daily product launches'
+  },
+  {
+    name: 'Indie Hackers',
+    url: 'https://www.indiehackers.com/feed',
+    category: 'Product Management',
+    description: 'Indie product builders'
+  },
+  {
+    name: 'Hacker News',
+    url: 'https://hnrss.org/frontpage',
+    category: 'Tech News',
+    description: 'Tech community news'
+  },
+  {
+    name: 'The Verge',
+    url: 'https://www.theverge.com/rss/index.xml',
+    category: 'Tech News',
+    description: 'Technology news'
+  },
+  {
+    name: 'TechCrunch Product',
+    url: 'https://techcrunch.com/tag/product-management/feed/',
+    category: 'Product News',
+    description: 'Product management news'
+  },
+  {
+    name: 'Wired Product',
+    url: 'https://www.wired.com/feed/tag/product-design/latest/rss',
+    category: 'Product Design',
+    description: 'Product design coverage'
+  },
+
+  // ===== BEHAVIORAL SCIENCE & PSYCHOLOGY =====
+  {
+    name: 'BehavioralEconomics.com',
+    url: 'https://www.behavioraleconomics.com/feed/',
+    category: 'Behavioral Product',
+    description: 'Behavioral economics'
+  },
+  {
+    name: 'Choice Hacking',
+    url: 'https://www.choice-hacking.com/feed',
+    category: 'Behavioral Product',
+    description: 'Behavioral science for products'
+  },
+
+  // ===== PRODUCT MARKETING =====
+  {
+    name: 'Product Marketing Alliance',
+    url: 'https://www.productmarketingalliance.com/blog-feed.xml',
+    category: 'Product Marketing',
+    description: 'Product marketing insights'
+  },
+  {
+    name: 'Drift Blog',
+    url: 'https://www.drift.com/blog/feed/',
+    category: 'Product Marketing',
+    description: 'Conversational marketing'
+  },
+  {
+    name: 'Wynter Blog',
+    url: 'https://wynter.com/blog/feed/',
+    category: 'Product Marketing',
+    description: 'B2B messaging research'
+  },
+
+  // ===== CUSTOMER SUCCESS & SUPPORT =====
+  {
+    name: 'Gainsight Blog',
+    url: 'https://www.gainsight.com/blog/feed/',
+    category: 'Customer Success',
+    description: 'Customer success platform'
+  },
+  {
+    name: 'ChurnZero Blog',
+    url: 'https://churnzero.net/blog/feed/',
+    category: 'Customer Success',
+    description: 'Customer retention'
+  },
+  {
+    name: 'Zendesk Blog',
+    url: 'https://www.zendesk.com/blog/feed/',
+    category: 'Customer Support',
+    description: 'Customer service insights'
+  },
+  {
+    name: 'Intercom Support',
+    url: 'https://www.intercom.com/blog/category/customer-support/feed/',
+    category: 'Customer Support',
+    description: 'Customer support best practices'
   }
 ];
 
@@ -868,6 +1172,11 @@ app.get('/api/extract', async (req, res) => {
     console.error('Error extracting article:', err.message);
     res.status(500).json({ error: 'Failed to extract article content', message: err.message });
   }
+});
+
+// Catch-all route to serve React app for client-side routing (must be AFTER all API routes)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'client', 'dist', 'index.html'));
 });
 
 // Initialize server
