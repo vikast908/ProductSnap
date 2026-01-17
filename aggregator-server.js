@@ -1,3 +1,6 @@
+// Load environment variables first
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const RSSParser = require('rss-parser');
@@ -5,9 +8,24 @@ const low = require('lowdb');
 const FileSync = require('lowdb/adapters/FileSync');
 const cron = require('node-cron');
 const path = require('path');
+const fs = require('fs');
 const axios = require('axios');
 const { JSDOM } = require('jsdom');
 const { Readability } = require('@mozilla/readability');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const session = require('express-session');
+const passport = require('passport');
+
+// Import routes
+const createAuthRoutes = require('./routes/auth');
+const createSettingsRoutes = require('./routes/settings');
+const createChatRoutes = require('./routes/chat');
+const createAdminRoutes = require('./routes/admin');
+
+// Import middleware
+const { authenticateToken } = require('./middleware/auth');
+const { requireAdmin } = require('./middleware/rbac');
 
 const app = express();
 const parser = new RSSParser({
@@ -27,10 +45,160 @@ const dbPath = path.join(__dirname, 'content-aggregator.json');
 const adapter = new FileSync(dbPath);
 const db = low(adapter);
 
+// Podcast transcripts directory
+const PODCAST_DIR = path.join(__dirname, "Lenny's Podcast Transcripts Archive [public]");
+
+// Category hierarchy for sidebar grouping
+const CATEGORY_HIERARCHY = {
+  'Design & UX': {
+    description: 'Product Design, UX Research & Accessibility',
+    children: ['Product Design', 'UX Research', 'Product Accessibility'],
+    icon: 'palette'
+  },
+  'Product Analytics': {
+    description: 'Analytics, Data & Experimentation',
+    children: ['Product Analytics', 'Product Experimentation'],
+    icon: 'chart'
+  },
+  'Product Strategy': {
+    description: 'Strategy, Positioning & Leadership',
+    children: ['Product Strategy', 'Product Positioning', 'Product Leadership'],
+    icon: 'strategy'
+  },
+  'Growth & Marketing': {
+    description: 'Product Growth & Marketing',
+    children: ['Product Growth', 'Product Marketing', 'Product-Led Growth'],
+    icon: 'growth'
+  },
+  'Engineering & DevOps': {
+    description: 'Product Engineering & Developer Tools',
+    children: ['Product Engineering', 'Developer Tools', 'DevOps Product', 'API Product'],
+    icon: 'code'
+  },
+  'Product Launch': {
+    description: 'Launches, Discovery & Innovation',
+    children: ['Product Launch', 'Product Discovery', 'Product Innovation'],
+    icon: 'rocket'
+  },
+  'Operations & Success': {
+    description: 'Product Ops, Customer Success & Support',
+    children: ['Product Operations', 'Customer Success', 'Customer Support', 'Product Collaboration'],
+    icon: 'settings'
+  }
+};
+
+// In-memory cache for better performance
+const cache = {
+  articles: null,
+  categories: null,
+  feeds: null,
+  transcripts: null,
+  stats: null,
+  lastUpdate: null,
+  TTL: 60000 // 1 minute cache TTL
+};
+
+// Helper function to invalidate cache
+function invalidateCache() {
+  cache.articles = null;
+  cache.categories = null;
+  cache.feeds = null;
+  cache.stats = null;
+  cache.lastUpdate = Date.now();
+}
+
+// Helper function for concurrent processing with limit (reduced for OneDrive compatibility)
+async function processWithConcurrency(items, processor, concurrencyLimit = 3) {
+  const results = [];
+  const executing = new Set();
+
+  for (const item of items) {
+    const promise = processor(item).then(result => {
+      executing.delete(promise);
+      return result;
+    });
+    executing.add(promise);
+    results.push(promise);
+
+    if (executing.size >= concurrencyLimit) {
+      await Promise.race(executing);
+    }
+  }
+
+  return Promise.all(results);
+}
+
+// Safe database write with retry logic for OneDrive file locking
+function safeDbWrite(operation, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      operation.write();
+      return true;
+    } catch (err) {
+      if (attempt === maxRetries) {
+        console.error(`Database write failed after ${maxRetries} attempts:`, err.message);
+        return false;
+      }
+      // Wait before retry (exponential backoff)
+      const delay = attempt * 200;
+      const start = Date.now();
+      while (Date.now() - start < delay) {
+        // Busy wait (sync)
+      }
+    }
+  }
+  return false;
+}
+
+// Rate limiters
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // Limit each IP to 20 requests per windowMs for auth endpoints
+  message: { error: 'Too many authentication attempts, please try again later' }
+});
+
+const chatLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 30, // Limit each IP to 30 requests per minute for chat
+  message: { error: 'Too many chat requests, please slow down' }
+});
+
+const generalLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 100, // Limit each IP to 100 requests per minute
+  message: { error: 'Too many requests, please slow down' }
+});
+
+// Security middleware
+app.use(helmet({
+  contentSecurityPolicy: false, // Disable for development, enable in production
+  crossOriginEmbedderPolicy: false
+}));
+
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production'
+    ? process.env.FRONTEND_URL
+    : ['http://localhost:5173', 'http://localhost:3000'],
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'client', 'dist')));
+
+// Session middleware for Passport
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-session-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+  }
+}));
+
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Comprehensive Product Management RSS Feeds
 const PM_FEEDS = [
@@ -836,6 +1004,254 @@ const PM_FEEDS = [
     url: 'https://www.intercom.com/blog/category/customer-support/feed/',
     category: 'Customer Support',
     description: 'Customer support best practices'
+  },
+
+  // ===== PRODUCT LAUNCH & DISCOVERY =====
+  {
+    name: 'BetaList',
+    url: 'https://betalist.com/feed',
+    category: 'Product Launch',
+    description: 'Discover and get early access to tomorrow\'s startups'
+  },
+  {
+    name: 'Launching Next',
+    url: 'https://www.launchingnext.com/rss/',
+    category: 'Product Launch',
+    description: 'New startup launches and products'
+  },
+  {
+    name: 'SaaS Hub',
+    url: 'https://www.saashub.com/feed',
+    category: 'Product Launch',
+    description: 'SaaS software alternatives and reviews'
+  },
+  {
+    name: 'AlternativeTo',
+    url: 'https://alternativeto.net/news/feed/',
+    category: 'Product Discovery',
+    description: 'Software alternatives and recommendations'
+  },
+  {
+    name: 'Startup Stash',
+    url: 'https://startupstash.com/feed/',
+    category: 'Product Launch',
+    description: 'Curated startup resources and tools'
+  },
+  {
+    name: 'KillerStartups',
+    url: 'https://www.killerstartups.com/feed/',
+    category: 'Product Launch',
+    description: 'Startup reviews and launches'
+  },
+  {
+    name: 'F6S Startups',
+    url: 'https://www.f6s.com/feed',
+    category: 'Product Launch',
+    description: 'Startup community and funding'
+  },
+  {
+    name: 'Crunchbase News',
+    url: 'https://news.crunchbase.com/feed/',
+    category: 'Product Launch',
+    description: 'Startup and funding news'
+  },
+  {
+    name: 'TechCrunch Startups',
+    url: 'https://techcrunch.com/category/startups/feed/',
+    category: 'Product Launch',
+    description: 'Startup news and launches'
+  },
+  {
+    name: 'VentureBeat',
+    url: 'https://venturebeat.com/feed/',
+    category: 'Product Launch',
+    description: 'Tech and startup news'
+  },
+  {
+    name: 'Fast Company',
+    url: 'https://www.fastcompany.com/rss',
+    category: 'Product Innovation',
+    description: 'Business innovation and creativity'
+  },
+  {
+    name: 'Mashable Tech',
+    url: 'https://mashable.com/feeds/rss/tech',
+    category: 'Product Launch',
+    description: 'Tech product news and launches'
+  },
+  {
+    name: 'The Next Web',
+    url: 'https://thenextweb.com/feed/',
+    category: 'Product Launch',
+    description: 'Tech news and product launches'
+  },
+  {
+    name: 'Gizmodo',
+    url: 'https://gizmodo.com/rss',
+    category: 'Product Launch',
+    description: 'Tech and gadget news'
+  },
+  {
+    name: 'Engadget',
+    url: 'https://www.engadget.com/rss.xml',
+    category: 'Product Launch',
+    description: 'Tech product reviews and news'
+  },
+  {
+    name: 'CNET News',
+    url: 'https://www.cnet.com/rss/news/',
+    category: 'Product Launch',
+    description: 'Tech news and product reviews'
+  },
+  {
+    name: 'Ars Technica',
+    url: 'https://feeds.arstechnica.com/arstechnica/technology-lab',
+    category: 'Product Launch',
+    description: 'Tech news and analysis'
+  },
+  {
+    name: 'Product School Launches',
+    url: 'https://productschool.com/blog/category/product-launches/feed/',
+    category: 'Product Launch',
+    description: 'Product launch case studies'
+  },
+  {
+    name: 'SaaStr',
+    url: 'https://www.saastr.com/feed/',
+    category: 'Product Launch',
+    description: 'SaaS startup insights and strategies'
+  },
+  {
+    name: 'CB Insights',
+    url: 'https://www.cbinsights.com/research/feed/',
+    category: 'Product Launch',
+    description: 'Tech market intelligence and trends'
+  },
+  {
+    name: 'AngelList Blog',
+    url: 'https://www.angellist.com/blog/feed.xml',
+    category: 'Product Launch',
+    description: 'Startup ecosystem insights'
+  },
+  {
+    name: 'Seedtable',
+    url: 'https://www.seedtable.com/feed',
+    category: 'Product Launch',
+    description: 'European startup launches'
+  },
+  {
+    name: 'EU-Startups',
+    url: 'https://www.eu-startups.com/feed/',
+    category: 'Product Launch',
+    description: 'European startup news'
+  },
+  {
+    name: 'Silicon Canals',
+    url: 'https://siliconcanals.com/feed/',
+    category: 'Product Launch',
+    description: 'European tech startup news'
+  },
+  {
+    name: 'Tech.eu',
+    url: 'https://tech.eu/feed/',
+    category: 'Product Launch',
+    description: 'European tech news'
+  },
+  {
+    name: 'TechInAsia',
+    url: 'https://www.techinasia.com/feed',
+    category: 'Product Launch',
+    description: 'Asian tech startup news'
+  },
+  {
+    name: 'e27',
+    url: 'https://e27.co/feed/',
+    category: 'Product Launch',
+    description: 'Southeast Asian startup news'
+  },
+  {
+    name: 'YourStory',
+    url: 'https://yourstory.com/feed',
+    category: 'Product Launch',
+    description: 'Indian startup news'
+  },
+  {
+    name: 'Inc42',
+    url: 'https://inc42.com/feed/',
+    category: 'Product Launch',
+    description: 'Indian startup ecosystem'
+  },
+  {
+    name: 'GeekWire',
+    url: 'https://www.geekwire.com/feed/',
+    category: 'Product Launch',
+    description: 'Pacific Northwest tech news'
+  },
+  {
+    name: 'Built In',
+    url: 'https://builtin.com/feed',
+    category: 'Product Launch',
+    description: 'Tech hub startup news'
+  },
+  {
+    name: 'The Information',
+    url: 'https://www.theinformation.com/feed',
+    category: 'Product Launch',
+    description: 'In-depth tech business news'
+  },
+  {
+    name: 'Protocol',
+    url: 'https://www.protocol.com/feeds/feed.rss',
+    category: 'Product Launch',
+    description: 'Tech industry news'
+  },
+  {
+    name: 'Recode',
+    url: 'https://www.vox.com/recode/rss/index.xml',
+    category: 'Product Launch',
+    description: 'Tech and media news'
+  },
+  {
+    name: 'Benedict Evans',
+    url: 'https://www.ben-evans.com/benedictevans?format=rss',
+    category: 'Product Strategy',
+    description: 'Tech and mobile analysis'
+  },
+  {
+    name: 'Both Sides of the Table',
+    url: 'https://bothsidesofthetable.com/feed',
+    category: 'Product Launch',
+    description: 'VC perspective on startups'
+  },
+  {
+    name: 'Fred Wilson AVC',
+    url: 'https://avc.com/feed/',
+    category: 'Product Launch',
+    description: 'VC insights on startups'
+  },
+  {
+    name: 'Tomasz Tunguz',
+    url: 'https://tomtunguz.com/feed/',
+    category: 'Product Launch',
+    description: 'SaaS and startup data analysis'
+  },
+  {
+    name: 'Version One VC',
+    url: 'https://versionone.vc/feed/',
+    category: 'Product Launch',
+    description: 'Early-stage startup insights'
+  },
+  {
+    name: 'Greylock Partners',
+    url: 'https://greylock.com/feed/',
+    category: 'Product Launch',
+    description: 'VC perspectives on tech'
+  },
+  {
+    name: 'Sequoia Capital',
+    url: 'https://www.sequoiacap.com/feed/',
+    category: 'Product Launch',
+    description: 'Startup building insights'
   }
 ];
 
@@ -844,6 +1260,7 @@ function initDatabase() {
   db.defaults({
     feeds: [],
     articles: [],
+    users: [],
     metadata: {
       created: new Date().toISOString(),
       lastUpdate: new Date().toISOString()
@@ -885,14 +1302,15 @@ async function fetchFeed(feed) {
     console.log(`Fetching: ${feed.name}...`);
     const rssFeed = await parser.parseURL(feed.url);
 
-    db.get('feeds')
-      .find({ id: feed.id })
-      .assign({
-        lastFetched: new Date().toISOString(),
-        fetchCount: (feed.fetchCount || 0) + 1,
-        errorCount: 0
-      })
-      .write();
+    safeDbWrite(
+      db.get('feeds')
+        .find({ id: feed.id })
+        .assign({
+          lastFetched: new Date().toISOString(),
+          fetchCount: (feed.fetchCount || 0) + 1,
+          errorCount: 0
+        })
+    );
 
     return {
       feed: feed,
@@ -901,13 +1319,14 @@ async function fetchFeed(feed) {
   } catch (err) {
     console.error(`Error fetching ${feed.name}:`, err.message);
 
-    db.get('feeds')
-      .find({ id: feed.id })
-      .assign({
-        lastFetched: new Date().toISOString(),
-        errorCount: (feed.errorCount || 0) + 1
-      })
-      .write();
+    safeDbWrite(
+      db.get('feeds')
+        .find({ id: feed.id })
+        .assign({
+          lastFetched: new Date().toISOString(),
+          errorCount: (feed.errorCount || 0) + 1
+        })
+    );
 
     return null;
   }
@@ -926,22 +1345,24 @@ function saveArticles(feedId, items, category, feedName) {
       const content = item.content || item['content:encoded'] || item.contentSnippet || item.description || '';
       const imageUrl = item.enclosure?.url || item['media:thumbnail']?.$ ?.url || item['media:content']?.$ ?.url || null;
 
-      db.get('articles').push({
-        id: Date.now() + Math.random(),
-        feedId: feedId,
-        feedName: feedName,
-        title: item.title || 'Untitled',
-        link: item.link || '',
-        description: item.contentSnippet || item.description || '',
-        content: content,
-        author: item.creator || item.author || item['dc:creator'] || null,
-        category: category,
-        pubDate: pubDate,
-        fetchedAt: new Date().toISOString(),
-        imageUrl: imageUrl
-      }).write();
+      const writeSuccess = safeDbWrite(
+        db.get('articles').push({
+          id: Date.now() + Math.random(),
+          feedId: feedId,
+          feedName: feedName,
+          title: item.title || 'Untitled',
+          link: item.link || '',
+          description: item.contentSnippet || item.description || '',
+          content: content,
+          author: item.creator || item.author || item['dc:creator'] || null,
+          category: category,
+          pubDate: pubDate,
+          fetchedAt: new Date().toISOString(),
+          imageUrl: imageUrl
+        })
+      );
 
-      savedCount++;
+      if (writeSuccess) savedCount++;
     } catch (err) {
       console.error(`Error saving article: ${err.message}`);
     }
@@ -950,9 +1371,9 @@ function saveArticles(feedId, items, category, feedName) {
   return savedCount;
 }
 
-// Fetch all active feeds
+// Fetch all active feeds with parallel processing for better performance
 async function fetchAllFeeds() {
-  console.log('\n=== Starting RSS Feed Fetch ===');
+  console.log('\n=== Starting RSS Feed Fetch (Parallel Mode) ===');
   const startTime = Date.now();
 
   const feeds = db.get('feeds').filter({ active: true }).value();
@@ -962,48 +1383,189 @@ async function fetchAllFeeds() {
   let successCount = 0;
   let errorCount = 0;
 
-  for (const feed of feeds) {
+  // Process feeds in parallel with reduced concurrency for OneDrive compatibility
+  const results = await processWithConcurrency(feeds, async (feed) => {
     const result = await fetchFeed(feed);
 
     if (result && result.items.length > 0) {
       const saved = saveArticles(feed.id, result.items, feed.category, feed.name);
-      totalArticles += saved;
-      successCount++;
-      console.log(`  ✓ ${feed.name}: ${saved} new articles`);
+      return { feed, saved, success: true };
     } else if (result) {
+      return { feed, saved: 0, success: true };
+    } else {
+      return { feed, saved: 0, success: false };
+    }
+  }, 3);
+
+  // Process results
+  for (const result of results) {
+    if (result.success) {
       successCount++;
-      console.log(`  ○ ${feed.name}: No new articles`);
+      totalArticles += result.saved;
+      if (result.saved > 0) {
+        console.log(`  ✓ ${result.feed.name}: ${result.saved} new articles`);
+      }
     } else {
       errorCount++;
-      console.log(`  ✗ ${feed.name}: Failed`);
+      console.log(`  ✗ ${result.feed.name}: Failed`);
     }
-
-    // Small delay between requests
-    await new Promise(resolve => setTimeout(resolve, 300));
   }
 
   db.set('metadata.lastUpdate', new Date().toISOString()).write();
+  invalidateCache(); // Clear cache after update
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(2);
   console.log(`\n=== Fetch Complete ===`);
-  console.log(`Duration: ${duration}s`);
+  console.log(`Duration: ${duration}s (parallel processing)`);
   console.log(`Success: ${successCount}, Errors: ${errorCount}`);
   console.log(`Total new articles: ${totalArticles}`);
 
   return { totalArticles, successCount, errorCount };
 }
 
+// Load and parse Lenny's Podcast transcripts
+async function loadPodcastTranscripts() {
+  console.log('\n=== Loading Lenny\'s Podcast Transcripts ===');
+
+  if (!fs.existsSync(PODCAST_DIR)) {
+    console.log('Podcast directory not found');
+    return [];
+  }
+
+  const files = fs.readdirSync(PODCAST_DIR).filter(f => f.endsWith('.txt'));
+  console.log(`Found ${files.length} transcript files`);
+
+  const transcripts = [];
+
+  for (const file of files) {
+    try {
+      const filePath = path.join(PODCAST_DIR, file);
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const guestName = file.replace('.txt', '');
+
+      // Parse transcript to extract metadata
+      const lines = content.split('\n');
+      const firstSpeaker = lines[0]?.match(/^([^(]+)\s*\(/)?.[1]?.trim() || guestName;
+
+      // Get first ~500 chars as description
+      const description = content.slice(0, 500).replace(/\n/g, ' ').trim() + '...';
+
+      // Estimate duration based on content length (rough estimate: 150 words/min)
+      const wordCount = content.split(/\s+/).length;
+      const estimatedMinutes = Math.round(wordCount / 150);
+
+      transcripts.push({
+        id: `podcast-${Buffer.from(guestName).toString('base64').slice(0, 12)}`,
+        type: 'podcast',
+        title: `Lenny's Podcast: ${guestName}`,
+        guest: guestName,
+        host: 'Lenny Rachitsky',
+        description: description,
+        content: content,
+        wordCount: wordCount,
+        estimatedDuration: `${estimatedMinutes} min`,
+        category: "Lenny's Podcast",
+        feedName: "Lenny's Podcast",
+        fileName: file,
+        pubDate: null, // We don't have exact dates
+        fetchedAt: new Date().toISOString()
+      });
+    } catch (err) {
+      console.error(`Error loading transcript ${file}:`, err.message);
+    }
+  }
+
+  cache.transcripts = transcripts;
+  console.log(`✓ Loaded ${transcripts.length} podcast transcripts`);
+  return transcripts;
+}
+
+// Search transcripts
+function searchTranscripts(query, limit = 20) {
+  if (!cache.transcripts) return [];
+
+  const queryLower = query.toLowerCase();
+
+  return cache.transcripts
+    .filter(t =>
+      t.guest.toLowerCase().includes(queryLower) ||
+      t.title.toLowerCase().includes(queryLower) ||
+      t.content.toLowerCase().includes(queryLower)
+    )
+    .slice(0, limit)
+    .map(t => ({
+      ...t,
+      content: undefined, // Don't send full content in search results
+      snippet: getSnippet(t.content, query)
+    }));
+}
+
+// Get context snippet around search term
+function getSnippet(content, query, contextLength = 200) {
+  const queryLower = query.toLowerCase();
+  const contentLower = content.toLowerCase();
+  const index = contentLower.indexOf(queryLower);
+
+  if (index === -1) {
+    return content.slice(0, contextLength) + '...';
+  }
+
+  const start = Math.max(0, index - contextLength / 2);
+  const end = Math.min(content.length, index + query.length + contextLength / 2);
+
+  let snippet = content.slice(start, end);
+  if (start > 0) snippet = '...' + snippet;
+  if (end < content.length) snippet = snippet + '...';
+
+  return snippet;
+}
+
 // API Routes
 
+// Mount auth routes (with rate limiting)
+app.use('/api/auth', authLimiter, createAuthRoutes(db));
+
+// Mount settings routes
+app.use('/api/settings', createSettingsRoutes(db));
+
+// Mount chat routes (with rate limiting)
+app.use('/api/chat', chatLimiter, createChatRoutes(db, cache));
+
+// Mount admin routes
+app.use('/api/admin', createAdminRoutes(db));
+
+// Get articles with caching and improved filtering
 app.get('/api/articles', (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const category = req.query.category;
     const search = req.query.search?.toLowerCase();
+    const contentType = req.query.type; // 'article', 'podcast', or 'all'
+    const includePodcasts = req.query.includePodcasts === 'true';
     const offset = (page - 1) * limit;
 
-    let articles = db.get('articles').value();
+    // Use cached articles if available
+    let articles = cache.articles || db.get('articles').value();
+    if (!cache.articles) {
+      cache.articles = articles;
+    }
+
+    // Include podcast transcripts if requested
+    if (includePodcasts && cache.transcripts) {
+      const podcastItems = cache.transcripts.map(t => ({
+        ...t,
+        content: undefined // Don't include full transcript in list
+      }));
+      articles = [...articles, ...podcastItems];
+    }
+
+    // Filter by content type
+    if (contentType === 'podcast') {
+      articles = articles.filter(a => a.type === 'podcast');
+    } else if (contentType === 'article') {
+      articles = articles.filter(a => a.type !== 'podcast');
+    }
 
     if (category) {
       articles = articles.filter(a => a.category === category);
@@ -1011,13 +1573,22 @@ app.get('/api/articles', (req, res) => {
 
     if (search) {
       articles = articles.filter(a =>
-        a.title.toLowerCase().includes(search) ||
-        a.description.toLowerCase().includes(search) ||
+        a.title?.toLowerCase().includes(search) ||
+        a.description?.toLowerCase().includes(search) ||
+        a.guest?.toLowerCase().includes(search) ||
         (a.content && a.content.toLowerCase().includes(search))
       );
     }
 
-    articles.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+    // Sort: articles by pubDate, podcasts by guest name (since no dates)
+    articles.sort((a, b) => {
+      if (a.pubDate && b.pubDate) {
+        return new Date(b.pubDate) - new Date(a.pubDate);
+      }
+      if (a.pubDate) return -1;
+      if (b.pubDate) return 1;
+      return (a.guest || a.title).localeCompare(b.guest || b.title);
+    });
 
     const total = articles.length;
     const paginatedArticles = articles.slice(offset, offset + limit);
@@ -1034,6 +1605,107 @@ app.get('/api/articles', (req, res) => {
   } catch (err) {
     console.error('Error fetching articles:', err);
     res.status(500).json({ error: 'Failed to fetch articles' });
+  }
+});
+
+// Get all podcast transcripts
+app.get('/api/podcasts', (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const search = req.query.search?.toLowerCase();
+    const offset = (page - 1) * limit;
+
+    let transcripts = cache.transcripts || [];
+
+    if (search) {
+      transcripts = searchTranscripts(search, 1000);
+    } else {
+      // Return without full content for listing
+      transcripts = transcripts.map(t => ({
+        ...t,
+        content: undefined
+      }));
+    }
+
+    // Sort alphabetically by guest name
+    transcripts.sort((a, b) => a.guest.localeCompare(b.guest));
+
+    const total = transcripts.length;
+    const paginatedTranscripts = transcripts.slice(offset, offset + limit);
+
+    res.json({
+      podcasts: paginatedTranscripts,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching podcasts:', err);
+    res.status(500).json({ error: 'Failed to fetch podcasts' });
+  }
+});
+
+// Get single podcast transcript with full content
+app.get('/api/podcasts/:id', (req, res) => {
+  try {
+    const id = req.params.id;
+    const transcript = cache.transcripts?.find(t => t.id === id);
+
+    if (!transcript) {
+      return res.status(404).json({ error: 'Podcast transcript not found' });
+    }
+
+    res.json(transcript);
+  } catch (err) {
+    console.error('Error fetching podcast:', err);
+    res.status(500).json({ error: 'Failed to fetch podcast' });
+  }
+});
+
+// Search across articles and podcasts
+app.get('/api/search', (req, res) => {
+  try {
+    const query = req.query.q?.toLowerCase();
+    const limit = parseInt(req.query.limit) || 20;
+
+    if (!query) {
+      return res.status(400).json({ error: 'Search query required' });
+    }
+
+    // Search articles
+    const articles = (cache.articles || db.get('articles').value())
+      .filter(a =>
+        a.title?.toLowerCase().includes(query) ||
+        a.description?.toLowerCase().includes(query)
+      )
+      .slice(0, limit)
+      .map(a => ({ ...a, resultType: 'article' }));
+
+    // Search transcripts
+    const podcasts = searchTranscripts(query, limit)
+      .map(p => ({ ...p, resultType: 'podcast' }));
+
+    // Combine and sort by relevance (title match first)
+    const results = [...articles, ...podcasts].sort((a, b) => {
+      const aTitle = (a.title || '').toLowerCase().includes(query);
+      const bTitle = (b.title || '').toLowerCase().includes(query);
+      if (aTitle && !bTitle) return -1;
+      if (!aTitle && bTitle) return 1;
+      return 0;
+    }).slice(0, limit);
+
+    res.json({
+      results,
+      total: results.length,
+      query
+    });
+  } catch (err) {
+    console.error('Error searching:', err);
+    res.status(500).json({ error: 'Search failed' });
   }
 });
 
@@ -1055,12 +1727,18 @@ app.get('/api/articles/:id', (req, res) => {
 
 app.get('/api/categories', (req, res) => {
   try {
-    const articles = db.get('articles').value();
+    const articles = cache.articles || db.get('articles').value();
+    const transcripts = cache.transcripts || [];
     const categoryMap = {};
 
     articles.forEach(article => {
       categoryMap[article.category] = (categoryMap[article.category] || 0) + 1;
     });
+
+    // Add Lenny's Podcast as a category
+    if (transcripts.length > 0) {
+      categoryMap["Lenny's Podcast"] = transcripts.length;
+    }
 
     const categories = Object.entries(categoryMap).map(([category, count]) => ({
       category,
@@ -1074,15 +1752,103 @@ app.get('/api/categories', (req, res) => {
   }
 });
 
+// Get category groups with hierarchy for sidebar
+app.get('/api/category-groups', (req, res) => {
+  try {
+    const articles = cache.articles || db.get('articles').value();
+    const transcripts = cache.transcripts || [];
+
+    // Build category counts
+    const categoryMap = {};
+    articles.forEach(article => {
+      categoryMap[article.category] = (categoryMap[article.category] || 0) + 1;
+    });
+
+    // Add Lenny's Podcast
+    if (transcripts.length > 0) {
+      categoryMap["Lenny's Podcast"] = transcripts.length;
+    }
+
+    // Build grouped response
+    const groups = [];
+    const assignedCategories = new Set();
+
+    // Process each hierarchy group
+    for (const [groupName, groupConfig] of Object.entries(CATEGORY_HIERARCHY)) {
+      const children = [];
+      let groupTotal = 0;
+
+      for (const childCategory of groupConfig.children) {
+        const count = categoryMap[childCategory] || 0;
+        if (count > 0) {
+          children.push({
+            category: childCategory,
+            count: count
+          });
+          groupTotal += count;
+          assignedCategories.add(childCategory);
+        }
+      }
+
+      // Only include groups that have at least one category with articles
+      if (children.length > 0) {
+        groups.push({
+          name: groupName,
+          description: groupConfig.description,
+          icon: groupConfig.icon,
+          totalCount: groupTotal,
+          children: children.sort((a, b) => b.count - a.count)
+        });
+      }
+    }
+
+    // Add ungrouped categories (Product Management, Tech News, etc.)
+    const ungroupedCategories = [];
+    for (const [category, count] of Object.entries(categoryMap)) {
+      if (!assignedCategories.has(category)) {
+        ungroupedCategories.push({ category, count });
+      }
+    }
+
+    // Sort groups by total count
+    groups.sort((a, b) => b.totalCount - a.totalCount);
+
+    res.json({
+      groups,
+      ungrouped: ungroupedCategories.sort((a, b) => b.count - a.count)
+    });
+  } catch (err) {
+    console.error('Error fetching category groups:', err);
+    res.status(500).json({ error: 'Failed to fetch category groups' });
+  }
+});
+
 app.get('/api/feeds', (req, res) => {
   try {
-    const feeds = db.get('feeds').value();
-    const articles = db.get('articles').value();
+    const feeds = cache.feeds || db.get('feeds').value();
+    const articles = cache.articles || db.get('articles').value();
+    const transcripts = cache.transcripts || [];
 
     const feedsWithCounts = feeds.map(feed => ({
       ...feed,
       articleCount: articles.filter(a => a.feedId === feed.id).length
-    })).sort((a, b) => a.name.localeCompare(b.name));
+    }));
+
+    // Add Lenny's Podcast as a feed/provider
+    if (transcripts.length > 0) {
+      feedsWithCounts.push({
+        id: 'lennys-podcast',
+        name: "Lenny's Podcast",
+        url: 'https://www.lennyspodcast.com/',
+        category: "Lenny's Podcast",
+        description: "Lenny Rachitsky's podcast featuring interviews with world-class product leaders",
+        active: true,
+        articleCount: transcripts.length
+      });
+    }
+
+    // Sort alphabetically
+    feedsWithCounts.sort((a, b) => a.name.localeCompare(b.name));
 
     res.json(feedsWithCounts);
   } catch (err) {
@@ -1093,9 +1859,10 @@ app.get('/api/feeds', (req, res) => {
 
 app.get('/api/stats', (req, res) => {
   try {
-    const articles = db.get('articles').value();
-    const feeds = db.get('feeds').value();
+    const articles = cache.articles || db.get('articles').value();
+    const feeds = cache.feeds || db.get('feeds').value();
     const metadata = db.get('metadata').value();
+    const transcripts = cache.transcripts || [];
 
     const dates = articles.map(a => new Date(a.pubDate)).filter(d => !isNaN(d));
 
@@ -1106,7 +1873,11 @@ app.get('/api/stats', (req, res) => {
       categories: new Set(articles.map(a => a.category)).size,
       latestArticle: dates.length > 0 ? new Date(Math.max(...dates)).toISOString() : null,
       oldestArticle: dates.length > 0 ? new Date(Math.min(...dates)).toISOString() : null,
-      lastUpdate: metadata?.lastUpdate || null
+      lastUpdate: metadata?.lastUpdate || null,
+      // Podcast stats
+      totalPodcasts: transcripts.length,
+      totalPodcastWords: transcripts.reduce((sum, t) => sum + (t.wordCount || 0), 0),
+      podcastGuests: transcripts.map(t => t.guest)
     };
 
     res.json(stats);
@@ -1116,9 +1887,9 @@ app.get('/api/stats', (req, res) => {
   }
 });
 
-app.post('/api/refresh', async (req, res) => {
+app.post('/api/refresh', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    console.log('Manual refresh triggered');
+    console.log(`Manual refresh triggered by admin: ${req.user.email}`);
     const result = await fetchAllFeeds();
     res.json({ success: true, result });
   } catch (err) {
@@ -1181,10 +1952,13 @@ app.get('*', (req, res) => {
 
 // Initialize server
 async function initialize() {
-  console.log('Initializing Everything Product - Democratizing Product Knowledge\n');
+  console.log('Initializing ProductSnap - Your AI-Powered PM Knowledge Hub\n');
 
   initDatabase();
   initializeFeeds();
+
+  // Load Lenny's Podcast transcripts
+  await loadPodcastTranscripts();
 
   console.log('\nPerforming initial feed fetch...');
   await fetchAllFeeds();
@@ -1196,6 +1970,7 @@ async function initialize() {
   });
 
   console.log('\n✓ Cron job scheduled: Feed updates every 2 hours');
+  console.log(`✓ ${cache.transcripts?.length || 0} Lenny's Podcast transcripts loaded`);
 }
 
 // Start server
@@ -1203,13 +1978,16 @@ const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, async () => {
   console.log(`\n${'='.repeat(70)}`);
-  console.log('Everything Product - Content Aggregator');
-  console.log('Democratizing Product Management Knowledge');
+  console.log('ProductSnap - Content Aggregator');
+  console.log('AI-Powered Product Management Knowledge Hub');
   console.log(`${'='.repeat(70)}\n`);
   console.log(`Server: http://localhost:${PORT}`);
   console.log(`\nAPI Endpoints:`);
   console.log(`  GET  /api/articles       - Get all articles`);
   console.log(`  GET  /api/articles/:id   - Get single article`);
+  console.log(`  GET  /api/podcasts       - Get Lenny's Podcast transcripts`);
+  console.log(`  GET  /api/podcasts/:id   - Get single transcript`);
+  console.log(`  GET  /api/search         - Search articles & podcasts`);
   console.log(`  GET  /api/categories     - Get categories`);
   console.log(`  GET  /api/feeds          - Get all feeds`);
   console.log(`  GET  /api/stats          - Get statistics`);

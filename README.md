@@ -1,211 +1,347 @@
-# Everything Product - PM Content Aggregator
+# ProductSnap
 
-A modern, glass-designed RSS feed aggregator specifically curated for Product Management content. Aggregates articles from 79+ PM sources across 11 categories with a beautiful, responsive interface.
+**AI-Powered Product Management Knowledge Hub**
 
-## ✨ Features
+ProductSnap is a comprehensive content aggregator designed for product managers, providing curated articles from 167+ RSS feeds, 298 Lenny's Podcast transcripts, and an AI-powered chat assistant for instant insights.
 
-### 📰 **Content Aggregation**
-- **79+ RSS Feeds** from top PM sources (Mind the Product, Product Coalition, Lenny's Newsletter, etc.)
-- **11 Categories**: Product Strategy, AI/ML, Design, Analytics, Leadership, Growth, Career, Engineering, Case Studies, Frameworks, and General
-- **Automatic Updates** every 2 hours via cron jobs
-- **Full-text extraction** using Mozilla Readability for clean article previews
-
-### 🎨 **Modern Glass Design**
-- Glassmorphism/frosted glass aesthetic with RED color palette
-- Backdrop blur effects throughout the interface
-- Smooth transitions and hover animations
-- Fully responsive design for mobile and desktop
-
-### 🔍 **Powerful Filtering**
-- **Multi-select Category Filter** - Filter by multiple categories simultaneously
-- **Multi-select Time Filter** - Last week, month, 3 months, 6 months, year, or custom date range
-- **Multi-select Provider Filter** - Filter by specific content sources
-- **Real-time Search** - Debounced search across titles and content
-- **Smart Sorting** - Always sorted newest to oldest
-
-### 📱 **User Experience**
-- **Two View Modes**: Tiles and List views
-- **Instant Preview Pane** - Hover over articles to see content preview
-- **Collapsible Sidebar** - Toggle filters to maximize content space
-- **Pagination** - Smooth navigation through large article collections
-- **Keyboard Shortcuts** - Hover to preview articles instantly
-
-## 🚀 Quick Start
-
-### Installation
-
-1. **Clone the repository**
-```bash
-git clone <your-repo-url>
-cd DemoRead
-```
-
-2. **Install dependencies**
-```bash
-npm install
-```
-
-3. **Set up the database**
-```bash
-npm run setup
-```
-
-4. **Start the aggregator** (collects articles)
-```bash
-npm run aggregator
-```
-
-5. **In a separate terminal, start the web server**
-```bash
-npm start
-```
-
-6. **Open in browser**
-```
-http://localhost:3000
-```
-
-## 📦 Tech Stack
-
-### Backend
-- **Node.js** with Express
-- **RSS Parser** for feed aggregation
-- **LowDB** (JSON-based database)
-- **Mozilla Readability + JSDOM** for content extraction
-- **Node-Cron** for scheduled updates
-- **Cheerio** for HTML parsing
-- **Puppeteer** for JavaScript-heavy sites
-
-### Frontend
-- **Vanilla JavaScript** (ES6+)
-- **HTML5** with semantic markup
-- **CSS3** with glassmorphism design
-- **Custom Properties** for theming
-- **Backdrop-filter** for glass effects
-
-## 🗂️ Project Structure
-
-```
-DemoRead/
-├── aggregator-server.js      # Main backend with RSS aggregation
-├── database-setup.js          # Database initialization script
-├── package.json              # Dependencies and scripts
-├── content-aggregator.json   # LowDB database file
-├── public/
-│   └── index.html           # Frontend application (all-in-one)
-└── node_modules/            # Dependencies
-```
-
-## 📊 Data Sources
-
-### Categories & Sources (79+ feeds)
-
-**Product Strategy** (11 feeds)
-- Mind the Product, Product Coalition, Lenny's Newsletter, Silicon Valley Product Group, etc.
-
-**AI & ML in Product** (7 feeds)
-- Google AI Blog, OpenAI Blog, Towards Data Science, etc.
-
-**Product Design** (8 feeds)
-- Nielsen Norman Group, UX Collective, Smashing Magazine, etc.
-
-**Analytics & Data** (6 feeds)
-- Amplitude Blog, Mixpanel Blog, Mode Analytics, etc.
-
-**Leadership** (8 feeds)
-- First Round Review, a16z, Harvard Business Review, etc.
-
-**Growth & Marketing** (7 feeds)
-- Reforge Blog, GrowthHackers, Product-Led Alliance, etc.
-
-**Career & Learning** (6 feeds)
-- Product School, ProductPlan, The Product Manager, etc.
-
-**Engineering & Technical** (8 feeds)
-- Martin Fowler, GitHub Blog, Stack Overflow Blog, etc.
-
-**Case Studies** (6 feeds)
-- Intercom Blog, Atlassian Blog, Stripe Blog, etc.
-
-**Frameworks & Tools** (6 feeds)
-- Aha! Blog, ProductPlan Blog, Roadmunk Blog, etc.
-
-**General Product Management** (6 feeds)
-- Product Hunt Blog, Product Manager HQ, The Product Folks, etc.
-
-## 🎨 Design System
-
-### Glass Design Tokens
-```css
---glass-bg: hsl(0 0% 100% / 0.6);
---glass-border: hsl(0 0% 100% / 0.2);
---glass-sidebar: hsl(0 0% 100% / 0.4);
---shadow-glass: 0 8px 32px 0 hsl(0 85% 60% / 0.1);
---primary: hsl(0 85% 60%);  /* Vibrant Red */
-```
-
-### Key Visual Features
-- 10-20px backdrop blur for glass effect
-- Red gradient accents (0° to 340° hue)
-- Smooth cubic-bezier transitions
-- Hover states with transform and shadow changes
-
-## 🔧 Configuration
-
-### Update Frequency
-Edit the cron schedule in `aggregator-server.js`:
-```javascript
-cron.schedule('0 */2 * * *', () => {  // Every 2 hours
-    fetchAllFeeds();
-});
-```
-
-### Add New RSS Feeds
-Edit the `feeds` array in `aggregator-server.js`:
-```javascript
-{
-    name: 'Source Name',
-    url: 'https://example.com/rss',
-    category: 'Category Name'
-}
-```
-
-## 📝 NPM Scripts
-
-```bash
-npm start              # Start web server (port 3000)
-npm run aggregator     # Run RSS aggregator with scheduled updates
-npm run setup         # Initialize database structure
-```
-
-## 🌟 Features in Detail
-
-### Smart Preview System
-- Instant hover preview next to articles
-- Full-text extraction with Readability API
-- Code block syntax highlighting
-- Automatic content truncation for performance
-- Closes immediately when cursor leaves
-
-### Multi-Select Filters
-- Hold Ctrl/Cmd to select multiple options
-- Combine filters across categories, time, and providers
-- Real-time filtering without page reload
-- Visual feedback for selected options
-
-### Custom Date Range
-- Select from last 3 years of content
-- Date pickers with min/max validation
-- Apply button for custom range filtering
-
-## 🤝 Contributing
-
-This is a personal project for aggregating Product Management content. Feel free to fork and customize for your own needs!
-
-## 📄 License
-
-MIT
+![Version](https://img.shields.io/badge/version-3.0.0-blue)
+![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-green)
+![License](https://img.shields.io/badge/license-MIT-green)
 
 ---
 
-**Built for Product Managers who want to stay updated with the latest PM content across the web.**
+## Features
+
+### Content Aggregation
+- **167+ RSS Feeds** - Curated from top PM publications, thought leaders, and tech companies
+- **298 Lenny's Podcast Transcripts** - Full searchable transcripts from the #1 PM podcast
+- **Product Launch Feeds** - BetaList, TechCrunch, VentureBeat, Product Hunt, and 40+ more
+- **Auto-refresh** - Feeds update automatically every 2 hours
+
+### AI-Powered Chat (RAG)
+- **Multi-provider Support** - OpenAI (GPT-4o, o1), Anthropic (Claude), Google (Gemini)
+- **RAG Search** - AI responses backed by relevant articles and podcast transcripts
+- **Source Citations** - Every AI response includes clickable source references
+- **Model Selection** - Choose your preferred model for each AI provider
+
+### Authentication & Security
+- **Google OAuth** - Secure login with Google accounts
+- **Role-based Access** - Admin and User roles with different permissions
+- **Encrypted API Keys** - AES-256 encryption for stored API keys
+- **Rate Limiting** - Protection against abuse on auth and chat endpoints
+
+### User Interface
+- **11 Beautiful Themes** - Dark, Light, Newspaper, Kindle, Game of Thrones, LOTR, Harry Potter, Amazon, Sahara, Avatar
+- **Advanced Filtering** - Filter by category, source, time period
+- **Article Preview** - Hover to preview without leaving the page
+- **Transcript Viewer** - Full-text podcast transcripts with search
+- **Responsive Design** - Works on desktop, tablet, and mobile
+
+---
+
+## Quick Start
+
+### Prerequisites
+- Node.js >= 18.0.0
+- npm >= 9.0.0
+- Google Cloud OAuth credentials
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/productsnap.git
+cd productsnap
+
+# Install all dependencies
+npm run setup
+
+# Or manually:
+npm install
+cd client && npm install && npm run build
+cd ..
+```
+
+### Configuration
+
+1. **Create `.env` file** in the root directory:
+
+```env
+# Google OAuth Configuration
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
+
+# JWT Configuration (32+ characters)
+JWT_SECRET=your_32_char_secret_key_here
+
+# Encryption Key for API Keys (exactly 32 characters)
+ENCRYPTION_KEY=your_32_char_encryption_key_here
+
+# Admin Configuration
+ADMIN_EMAIL=your_admin_email@gmail.com
+
+# Server Configuration
+PORT=3000
+NODE_ENV=development
+
+# Session Secret
+SESSION_SECRET=your_session_secret_key_here
+```
+
+2. **Set up Google OAuth:**
+   - Go to [Google Cloud Console](https://console.cloud.google.com)
+   - Create a new project or select existing
+   - Enable Google+ API
+   - Go to Credentials -> Create OAuth Client ID
+   - Set authorized redirect URI: `http://localhost:3000/api/auth/google/callback`
+   - Copy Client ID and Secret to `.env`
+
+### Running the Application
+
+```bash
+# Start the server
+npm start
+
+# Or for development
+npm run dev
+```
+
+Visit **http://localhost:3000** in your browser.
+
+---
+
+## Architecture
+
+### Tech Stack
+
+**Backend:**
+- Express.js - Web framework
+- LowDB - JSON file database
+- Passport.js - Google OAuth authentication
+- JSON Web Tokens - Session management
+- crypto-js - AES-256 encryption
+- rss-parser - RSS feed parsing
+- OpenAI/Anthropic/Google SDKs - AI providers
+
+**Frontend:**
+- React 19 - UI framework
+- React Router - Client-side routing
+- Tailwind CSS - Styling
+- Radix UI - Accessible components
+- Lucide React - Icons
+- react-markdown - Markdown rendering
+
+### Project Structure
+
+```
+productsnap/
+├── aggregator-server.js    # Main Express server
+├── package.json
+├── .env                    # Environment variables
+├── content-aggregator.json # Database file
+│
+├── middleware/
+│   ├── auth.js            # JWT authentication
+│   └── rbac.js            # Role-based access control
+│
+├── routes/
+│   ├── auth.js            # Google OAuth routes
+│   ├── settings.js        # User settings API
+│   ├── chat.js            # AI chat endpoint
+│   └── admin.js           # Admin management
+│
+├── services/
+│   ├── encryption.js      # API key encryption
+│   ├── ai/
+│   │   ├── index.js       # AI service factory
+│   │   ├── openai.js      # OpenAI integration
+│   │   ├── anthropic.js   # Anthropic integration
+│   │   └── google.js      # Google AI integration
+│   └── rag/
+│       └── search.js      # RAG content search
+│
+├── client/                 # React frontend
+│   ├── src/
+│   │   ├── App.jsx        # Main app component
+│   │   ├── main.jsx       # Entry point
+│   │   ├── index.css      # Global styles & themes
+│   │   ├── context/
+│   │   │   └── AuthContext.jsx
+│   │   └── components/
+│   │       ├── ui/        # Radix UI components
+│   │       ├── auth/      # Login, UserMenu
+│   │       ├── chat/      # ChatBox, ChatMessage
+│   │       ├── settings/  # SettingsPage
+│   │       └── admin/     # AdminPanel, UserManager
+│   └── dist/              # Built frontend
+│
+└── Lenny's Podcast Transcripts Archive/
+    └── *.txt              # 298 transcript files
+```
+
+---
+
+## API Reference
+
+### Public Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/articles` | GET | Get paginated articles |
+| `/api/articles/:id` | GET | Get single article |
+| `/api/podcasts` | GET | Get podcast transcripts |
+| `/api/podcasts/:id` | GET | Get single transcript |
+| `/api/search` | GET | Search articles & podcasts |
+| `/api/categories` | GET | Get all categories |
+| `/api/feeds` | GET | Get feed statistics |
+| `/api/stats` | GET | Get overall statistics |
+
+### Protected Endpoints (Require Authentication)
+
+| Endpoint | Method | Role | Description |
+|----------|--------|------|-------------|
+| `/api/auth/me` | GET | Any | Get current user |
+| `/api/auth/logout` | POST | Any | Logout |
+| `/api/settings` | GET/PUT | Any | User preferences |
+| `/api/settings/api-keys` | PUT | Any | Save API keys |
+| `/api/chat` | POST | Any | AI chat with RAG |
+| `/api/chat/providers` | GET | Any | Get AI providers |
+| `/api/admin/users` | GET | Admin | List all users |
+| `/api/admin/users/:id/role` | PUT | Admin | Change user role |
+| `/api/refresh` | POST | Admin | Manual feed refresh |
+
+---
+
+## Feed Categories
+
+ProductSnap aggregates content from these categories:
+
+| Category | Example Sources | Feed Count |
+|----------|-----------------|------------|
+| **Product Management** | Mind the Product, SVPG, Product Talk | 30+ |
+| **Product Strategy** | Stratechery, First Round Review, a16z | 15+ |
+| **Product Design** | UX Collective, Nielsen Norman, Figma | 20+ |
+| **Product Analytics** | Amplitude, Mixpanel, PostHog | 10+ |
+| **Product Growth** | Reforge, Andrew Chen, Elena Verna | 10+ |
+| **Product Launch** | BetaList, TechCrunch, VentureBeat | 40+ |
+| **Tech News** | Hacker News, The Verge, Ars Technica | 20+ |
+| **PM Thought Leaders** | Lenny's Newsletter, John Cutler | 20+ |
+
+---
+
+## AI Chat Usage
+
+1. **Login** with Google account
+2. Go to **Settings** -> **API Keys**
+3. Add your API key for OpenAI, Anthropic, or Google AI
+4. Select your preferred **model** in Settings -> Preferences
+5. Click the **chat icon** in the header
+6. Ask questions like:
+   - "What does Brian Chesky say about product management?"
+   - "Summarize best practices for product launches"
+   - "What are the key metrics for product-led growth?"
+
+### Supported Models
+
+**OpenAI:**
+- GPT-4o (Latest)
+- GPT-4o Mini
+- GPT-4 Turbo
+- o1, o1-mini, o1-preview
+
+**Anthropic:**
+- Claude Sonnet 4
+- Claude Opus 4
+- Claude 3.5 Sonnet/Haiku
+- Claude 3 Opus/Sonnet/Haiku
+
+**Google:**
+- Gemini 1.5 Pro
+- Gemini 1.5 Flash
+- Gemini 2.0 Flash (Experimental)
+
+---
+
+## Development
+
+### Running in Development Mode
+
+```bash
+# Start backend
+npm run dev
+
+# In another terminal, start frontend with hot reload
+cd client
+npm run dev
+```
+
+### Building for Production
+
+```bash
+# Build frontend
+npm run build:client
+
+# Start production server
+NODE_ENV=production npm start
+```
+
+### Database
+
+ProductSnap uses LowDB (JSON file database). The database file is `content-aggregator.json` and contains:
+
+- `feeds` - RSS feed configurations
+- `articles` - Fetched articles
+- `users` - User accounts and settings
+- `metadata` - System information
+
+---
+
+## Troubleshooting
+
+### OneDrive File Locking
+
+If you see `UNKNOWN: unknown error, open 'content-aggregator.json'`:
+- The app has built-in retry logic for OneDrive sync conflicts
+- Concurrency is reduced to 3 parallel feed fetches
+- Wait for OneDrive to finish syncing before restarting
+
+### Google OAuth Errors
+
+- Ensure redirect URI matches exactly in Google Cloud Console
+- Check that GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are correct
+- Verify GOOGLE_CALLBACK_URL matches your server URL
+
+### AI Chat Not Working
+
+- Verify API key is correct in Settings
+- Check that you've selected a model for the provider
+- Look at server logs for API error messages
+
+---
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## License
+
+This project is licensed under the MIT License.
+
+---
+
+## Acknowledgments
+
+- [Lenny Rachitsky](https://www.lennysnewsletter.com/) for the amazing podcast transcripts
+- All the PM thought leaders whose content powers this aggregator
+- The open-source community for the amazing tools and libraries
+
+---
+
+**Built with love for the Product Management community**

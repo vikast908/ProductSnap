@@ -131,7 +131,7 @@ export function ArticlePreview({ articleUrl, onClose }) {
             </div>
           )}
           <div
-            className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-bold prose-p:leading-relaxed prose-a:text-primary prose-img:rounded-lg"
+            className="prose prose-sm max-w-none"
             dangerouslySetInnerHTML={{ __html: content?.content || '' }}
           />
         </div>
