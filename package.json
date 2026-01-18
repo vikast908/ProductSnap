@@ -3,10 +3,15 @@
   "version": "3.1.0",
   "description": "ProductSnap - AI-Powered Product Management Knowledge Hub with 167+ RSS feeds, Lenny's Podcast transcripts, and RAG-based AI chat",
   "main": "aggregator-server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "start": "node aggregator-server.js",
     "dev": "node aggregator-server.js",
+    "build": "cd client && npm install && npm run build",
     "build:client": "cd client && npm run build",
+    "postinstall": "npm run build",
     "setup": "npm install && cd client && npm install && npm run build"
   },
   "dependencies": {

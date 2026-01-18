@@ -320,6 +320,31 @@ npm run build:client
 NODE_ENV=production npm start
 ```
 
+### Deploy to Railway
+
+1. **Create Railway Account** at [railway.app](https://railway.app)
+
+2. **Connect GitHub Repository**
+   - Click "New Project" -> "Deploy from GitHub repo"
+   - Select your ProductSnap repository
+
+3. **Add Environment Variables** in Railway Dashboard:
+   ```
+   NODE_ENV=production
+   GOOGLE_CLIENT_ID=your_google_client_id
+   GOOGLE_CLIENT_SECRET=your_google_client_secret
+   GOOGLE_CALLBACK_URL=https://your-app.railway.app/api/auth/google/callback
+   JWT_SECRET=your_32_char_secret_key
+   ENCRYPTION_KEY=your_32_char_encryption_key
+   SESSION_SECRET=your_session_secret
+   ADMIN_EMAIL=your_admin_email@gmail.com
+   FRONTEND_URL=https://your-app.railway.app
+   ```
+
+4. **Update Google OAuth** - Add Railway URL to authorized redirect URIs in Google Cloud Console
+
+5. **Deploy** - Railway will automatically build and deploy
+
 ---
 
 ## Troubleshooting
