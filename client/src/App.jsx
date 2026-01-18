@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -15,9 +15,13 @@ import { SettingsPage } from '@/components/settings/SettingsPage'
 import { ChatPage } from '@/components/chat/ChatPage'
 import { ChatBox } from '@/components/chat/ChatBox'
 import { AdminPanel } from '@/components/admin/AdminPanel'
+import { BookmarksPage } from '@/components/bookmarks/BookmarksPage'
+import { AnalyticsPage } from '@/components/analytics/AnalyticsPage'
+import { MyFilesPage } from '@/components/files/MyFilesPage'
 import {
   Search, X, ExternalLink, Copy, Check, ChevronDown,
-  Mic, FileText, Clock, MessageSquare, BookOpen, Sun, Moon, Menu, ChevronRight
+  Mic, FileText, Clock, MessageSquare, BookOpen, Sun, Moon, Menu, ChevronRight,
+  Bookmark, BookmarkCheck, FolderOpen
 } from 'lucide-react'
 
 // Reading time estimator
@@ -43,6 +47,7 @@ const formatDate = (dateString) => {
 // Main HomePage
 function HomePage() {
   const { isAuthenticated } = useAuth()
+  const navigate = useNavigate()
   const [articles, setArticles] = useState([])
   const [podcasts, setPodcasts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -211,6 +216,15 @@ function HomePage() {
                     <span className="ml-1.5 text-xs opacity-60">{tab.count}</span>
                   </button>
                 ))}
+                {isAuthenticated && (
+                  <button
+                    onClick={() => navigate('/my-files')}
+                    className="px-4 py-2 text-sm font-medium rounded-full transition-all text-muted-foreground hover:text-foreground hover:bg-accent flex items-center gap-1.5"
+                  >
+                    <FolderOpen className="h-4 w-4" />
+                    My Files
+                  </button>
+                )}
               </nav>
             </div>
 
@@ -607,6 +621,9 @@ function App() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/admin" element={<AdminPanel />} />
+        <Route path="/bookmarks" element={<BookmarksPage />} />
+        <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/my-files" element={<MyFilesPage />} />
       </Routes>
     </AuthProvider>
   )

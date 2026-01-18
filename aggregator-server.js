@@ -10,6 +10,8 @@ const cron = require('node-cron');
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
+const multer = require('multer');
+const pdfParse = require('pdf-parse');
 const { JSDOM } = require('jsdom');
 const { Readability } = require('@mozilla/readability');
 const helmet = require('helmet');
@@ -48,6 +50,53 @@ const db = low(adapter);
 
 // Podcast transcripts directory
 const PODCAST_DIR = path.join(__dirname, "Lenny's Podcast Transcripts Archive [public]");
+
+// User uploads directory
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) {
+  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const userDir = path.join(UPLOADS_DIR, req.user.id);
+    if (!fs.existsSync(userDir)) {
+      fs.mkdirSync(userDir, { recursive: true });
+    }
+    cb(null, userDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + '-' + file.originalname);
+  }
+});
+
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = [
+    'text/plain',
+    'application/pdf',
+    'text/markdown',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ];
+  const allowedExtensions = ['.txt', '.pdf', '.md', '.docx'];
+  const ext = path.extname(file.originalname).toLowerCase();
+
+  if (allowedTypes.includes(file.mimetype) || allowedExtensions.includes(ext)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Invalid file type. Allowed: TXT, PDF, MD, DOCX'), false);
+  }
+};
+
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB max
+    files: 5 // Max 5 files at once
+  }
+});
 
 // Category hierarchy for sidebar grouping
 const CATEGORY_HIERARCHY = {
@@ -1280,14 +1329,53 @@ function initDatabase() {
     feeds: [],
     articles: [],
     users: [],
+    userFiles: [],           // { id, userId, filename, originalName, mimeType, size, content, uploadedAt }
+    bookmarks: [],           // { id, userId, articleId, podcastId, createdAt, notes }
+    readHistory: [],         // { id, userId, articleId, podcastId, readAt, readDuration }
+    articleSummaries: [],    // { id, articleId, summary, generatedAt, model }
+    analytics: {
+      articleViews: [],      // { articleId, userId, timestamp }
+      searchQueries: [],     // { query, userId, timestamp, resultsCount }
+      chatQueries: [],       // { userId, query, timestamp, sourcesUsed }
+      dailyStats: []         // { date, newArticles, activeUsers, searches, chats }
+    },
+    emailDigest: {
+      subscribers: [],       // { userId, email, frequency, lastSent, preferences }
+      sentDigests: []        // { id, userId, sentAt, articlesIncluded }
+    },
     metadata: {
       created: new Date().toISOString(),
       lastUpdate: new Date().toISOString()
     }
   }).write();
+
+  // Ensure new structures exist for existing databases
+  if (!db.has('analytics').value()) {
+    db.set('analytics', {
+      articleViews: [],
+      searchQueries: [],
+      chatQueries: [],
+      dailyStats: []
+    }).write();
+  }
+  if (!db.has('bookmarks').value()) {
+    db.set('bookmarks', []).write();
+  }
+  if (!db.has('readHistory').value()) {
+    db.set('readHistory', []).write();
+  }
+  if (!db.has('articleSummaries').value()) {
+    db.set('articleSummaries', []).write();
+  }
+  if (!db.has('emailDigest').value()) {
+    db.set('emailDigest', { subscribers: [], sentDigests: [] }).write();
+  }
+  if (!db.has('userFiles').value()) {
+    db.set('userFiles', []).write();
+  }
 }
 
-// Initialize feeds in database
+// Initialize feeds in database with smart tracking fields
 function initializeFeeds() {
   let addedCount = 0;
 
@@ -1305,14 +1393,176 @@ function initializeFeeds() {
         lastFetched: null,
         fetchCount: 0,
         errorCount: 0,
+        consecutiveErrors: 0,      // Track consecutive failures
+        lastArticleDate: null,     // Track when feed last had new content
+        avgPostsPerWeek: 0,        // Average posting frequency
+        healthScore: 100,          // Feed health (0-100)
         createdAt: new Date().toISOString()
       }).write();
       addedCount++;
+    } else {
+      // Migrate existing feeds to have new fields
+      const feed = db.get('feeds').find({ url: exists.url });
+      if (!exists.healthScore) {
+        feed.assign({
+          consecutiveErrors: exists.consecutiveErrors || 0,
+          lastArticleDate: exists.lastArticleDate || null,
+          avgPostsPerWeek: exists.avgPostsPerWeek || 0,
+          healthScore: exists.healthScore || 100
+        }).write();
+      }
     }
   }
 
   const totalFeeds = db.get('feeds').size().value();
   console.log(`✓ Initialized ${addedCount} new feeds (${totalFeeds} total)`);
+}
+
+// Calculate feed health score based on activity and errors
+function calculateFeedHealth(feed) {
+  let score = 100;
+
+  // Penalize for consecutive errors (max -50 points)
+  score -= Math.min((feed.consecutiveErrors || 0) * 10, 50);
+
+  // Penalize for inactivity (no articles in 30+ days)
+  if (feed.lastArticleDate) {
+    const daysSinceLastArticle = (Date.now() - new Date(feed.lastArticleDate).getTime()) / (1000 * 60 * 60 * 24);
+    if (daysSinceLastArticle > 30) {
+      score -= Math.min(Math.floor(daysSinceLastArticle / 7), 30); // Max -30 points
+    }
+  }
+
+  // Bonus for high posting frequency
+  if (feed.avgPostsPerWeek > 5) score = Math.min(score + 10, 100);
+
+  return Math.max(0, Math.min(100, score));
+}
+
+// Smart feed refresh - prioritize active, healthy feeds
+async function smartFeedRefresh() {
+  console.log('\n=== Smart Feed Refresh (Priority-Based) ===');
+  const startTime = Date.now();
+
+  const feeds = db.get('feeds').filter({ active: true }).value();
+
+  // Sort feeds by priority: health score * posting frequency
+  const prioritizedFeeds = feeds
+    .map(f => ({
+      ...f,
+      priority: (f.healthScore || 100) * (1 + (f.avgPostsPerWeek || 0) / 10)
+    }))
+    .sort((a, b) => b.priority - a.priority);
+
+  console.log(`Processing ${prioritizedFeeds.length} feeds by priority...`);
+
+  let totalArticles = 0;
+  let successCount = 0;
+  let errorCount = 0;
+
+  // Process in batches with concurrency
+  const results = await processWithConcurrency(prioritizedFeeds, async (feed) => {
+    const result = await fetchFeed(feed);
+
+    if (result && result.items.length > 0) {
+      const saved = saveArticles(feed.id, result.items, feed.category, feed.name);
+
+      // Update feed activity metrics
+      const latestItemDate = result.items[0]?.pubDate || result.items[0]?.isoDate;
+      const articlesThisWeek = result.items.filter(item => {
+        const date = new Date(item.pubDate || item.isoDate);
+        return (Date.now() - date.getTime()) < 7 * 24 * 60 * 60 * 1000;
+      }).length;
+
+      safeDbWrite(
+        db.get('feeds').find({ id: feed.id }).assign({
+          consecutiveErrors: 0,
+          lastArticleDate: latestItemDate || feed.lastArticleDate,
+          avgPostsPerWeek: Math.round((feed.avgPostsPerWeek || 0) * 0.7 + articlesThisWeek * 0.3),
+          healthScore: calculateFeedHealth({ ...feed, consecutiveErrors: 0 })
+        })
+      );
+
+      return { feed, saved, success: true };
+    } else if (result) {
+      return { feed, saved: 0, success: true };
+    } else {
+      // Update error tracking
+      const newConsecutiveErrors = (feed.consecutiveErrors || 0) + 1;
+      safeDbWrite(
+        db.get('feeds').find({ id: feed.id }).assign({
+          consecutiveErrors: newConsecutiveErrors,
+          healthScore: calculateFeedHealth({ ...feed, consecutiveErrors: newConsecutiveErrors })
+        })
+      );
+      return { feed, saved: 0, success: false };
+    }
+  }, 3);
+
+  // Process results
+  for (const result of results) {
+    if (result.success) {
+      successCount++;
+      totalArticles += result.saved;
+      if (result.saved > 0) {
+        console.log(`  ✓ ${result.feed.name}: ${result.saved} new articles`);
+      }
+    } else {
+      errorCount++;
+    }
+  }
+
+  // Update daily stats
+  updateDailyStats(totalArticles);
+
+  db.set('metadata.lastUpdate', new Date().toISOString()).write();
+  invalidateCache();
+
+  const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+  console.log(`\n=== Smart Refresh Complete ===`);
+  console.log(`Duration: ${duration}s | Success: ${successCount} | Errors: ${errorCount} | New articles: ${totalArticles}`);
+
+  return { totalArticles, successCount, errorCount };
+}
+
+// Update daily statistics
+function updateDailyStats(newArticles = 0) {
+  const today = new Date().toISOString().split('T')[0];
+  const analytics = db.get('analytics').value();
+
+  let todayStats = analytics.dailyStats.find(s => s.date === today);
+
+  if (!todayStats) {
+    todayStats = {
+      date: today,
+      newArticles: 0,
+      activeUsers: 0,
+      searches: 0,
+      chats: 0,
+      articleViews: 0
+    };
+    analytics.dailyStats.push(todayStats);
+  }
+
+  todayStats.newArticles += newArticles;
+
+  // Count unique active users today
+  const todayViews = analytics.articleViews.filter(v => v.timestamp?.startsWith(today));
+  const todaySearches = analytics.searchQueries.filter(q => q.timestamp?.startsWith(today));
+  const todayChats = analytics.chatQueries?.filter(c => c.timestamp?.startsWith(today)) || [];
+
+  const uniqueUsers = new Set([
+    ...todayViews.map(v => v.userId),
+    ...todaySearches.map(s => s.userId),
+    ...todayChats.map(c => c.userId)
+  ].filter(Boolean));
+
+  todayStats.activeUsers = uniqueUsers.size;
+  todayStats.searches = todaySearches.length;
+  todayStats.chats = todayChats.length;
+  todayStats.articleViews = todayViews.length;
+
+  safeDbWrite(db.set('analytics.dailyStats', analytics.dailyStats));
 }
 
 // Fetch and parse RSS feed
@@ -1909,11 +2159,891 @@ app.get('/api/stats', (req, res) => {
 app.post('/api/refresh', authenticateToken, requireAdmin, async (req, res) => {
   try {
     console.log(`Manual refresh triggered by admin: ${req.user.email}`);
-    const result = await fetchAllFeeds();
+    const result = await smartFeedRefresh(); // Use smart refresh
     res.json({ success: true, result });
   } catch (err) {
     console.error('Error during manual refresh:', err);
     res.status(500).json({ error: 'Failed to refresh feeds' });
+  }
+});
+
+// ==================== BOOKMARKS API ====================
+
+// Get user's bookmarks
+app.get('/api/bookmarks', authenticateToken, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const bookmarks = db.get('bookmarks')
+      .filter({ userId })
+      .orderBy(['createdAt'], ['desc'])
+      .value();
+
+    // Enrich bookmarks with article/podcast data
+    const enrichedBookmarks = bookmarks.map(bookmark => {
+      if (bookmark.articleId) {
+        const article = db.get('articles').find({ id: bookmark.articleId }).value();
+        return { ...bookmark, item: article, type: 'article' };
+      } else if (bookmark.podcastId) {
+        const podcast = cache.transcripts?.find(t => t.id === bookmark.podcastId);
+        return { ...bookmark, item: podcast ? { ...podcast, content: undefined } : null, type: 'podcast' };
+      }
+      return bookmark;
+    }).filter(b => b.item); // Filter out bookmarks with deleted items
+
+    res.json({ bookmarks: enrichedBookmarks, total: enrichedBookmarks.length });
+  } catch (err) {
+    console.error('Error fetching bookmarks:', err);
+    res.status(500).json({ error: 'Failed to fetch bookmarks' });
+  }
+});
+
+// Add bookmark
+app.post('/api/bookmarks', authenticateToken, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { articleId, podcastId, notes } = req.body;
+
+    if (!articleId && !podcastId) {
+      return res.status(400).json({ error: 'articleId or podcastId is required' });
+    }
+
+    // Check if already bookmarked
+    const existing = db.get('bookmarks').find(b =>
+      b.userId === userId &&
+      ((articleId && b.articleId === articleId) || (podcastId && b.podcastId === podcastId))
+    ).value();
+
+    if (existing) {
+      return res.status(400).json({ error: 'Item already bookmarked' });
+    }
+
+    const bookmark = {
+      id: `bm-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      userId,
+      articleId: articleId || null,
+      podcastId: podcastId || null,
+      notes: notes || '',
+      createdAt: new Date().toISOString()
+    };
+
+    safeDbWrite(db.get('bookmarks').push(bookmark));
+
+    res.json({ success: true, bookmark });
+  } catch (err) {
+    console.error('Error adding bookmark:', err);
+    res.status(500).json({ error: 'Failed to add bookmark' });
+  }
+});
+
+// Remove bookmark
+app.delete('/api/bookmarks/:id', authenticateToken, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const bookmarkId = req.params.id;
+
+    const bookmark = db.get('bookmarks').find({ id: bookmarkId, userId }).value();
+
+    if (!bookmark) {
+      return res.status(404).json({ error: 'Bookmark not found' });
+    }
+
+    safeDbWrite(db.get('bookmarks').remove({ id: bookmarkId }));
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error removing bookmark:', err);
+    res.status(500).json({ error: 'Failed to remove bookmark' });
+  }
+});
+
+// Update bookmark notes
+app.patch('/api/bookmarks/:id', authenticateToken, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const bookmarkId = req.params.id;
+    const { notes } = req.body;
+
+    const bookmark = db.get('bookmarks').find({ id: bookmarkId, userId });
+
+    if (!bookmark.value()) {
+      return res.status(404).json({ error: 'Bookmark not found' });
+    }
+
+    safeDbWrite(bookmark.assign({ notes, updatedAt: new Date().toISOString() }));
+
+    res.json({ success: true, bookmark: bookmark.value() });
+  } catch (err) {
+    console.error('Error updating bookmark:', err);
+    res.status(500).json({ error: 'Failed to update bookmark' });
+  }
+});
+
+// ==================== READ HISTORY API ====================
+
+// Get user's read history
+app.get('/api/history', authenticateToken, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = parseInt(req.query.offset) || 0;
+
+    const history = db.get('readHistory')
+      .filter({ userId })
+      .orderBy(['readAt'], ['desc'])
+      .slice(offset, offset + limit)
+      .value();
+
+    // Enrich with article/podcast data
+    const enrichedHistory = history.map(entry => {
+      if (entry.articleId) {
+        const article = db.get('articles').find({ id: entry.articleId }).value();
+        return { ...entry, item: article, type: 'article' };
+      } else if (entry.podcastId) {
+        const podcast = cache.transcripts?.find(t => t.id === entry.podcastId);
+        return { ...entry, item: podcast ? { ...podcast, content: undefined } : null, type: 'podcast' };
+      }
+      return entry;
+    }).filter(h => h.item);
+
+    const total = db.get('readHistory').filter({ userId }).size().value();
+
+    res.json({ history: enrichedHistory, total, limit, offset });
+  } catch (err) {
+    console.error('Error fetching read history:', err);
+    res.status(500).json({ error: 'Failed to fetch read history' });
+  }
+});
+
+// Mark as read (track reading)
+app.post('/api/history', authenticateToken, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { articleId, podcastId, readDuration } = req.body;
+
+    if (!articleId && !podcastId) {
+      return res.status(400).json({ error: 'articleId or podcastId is required' });
+    }
+
+    // Update or create read history entry
+    const existing = db.get('readHistory').find(h =>
+      h.userId === userId &&
+      ((articleId && h.articleId === articleId) || (podcastId && h.podcastId === podcastId))
+    );
+
+    if (existing.value()) {
+      // Update existing entry
+      safeDbWrite(existing.assign({
+        readAt: new Date().toISOString(),
+        readCount: (existing.value().readCount || 1) + 1,
+        totalReadDuration: (existing.value().totalReadDuration || 0) + (readDuration || 0)
+      }));
+    } else {
+      // Create new entry
+      const entry = {
+        id: `rh-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        userId,
+        articleId: articleId || null,
+        podcastId: podcastId || null,
+        readAt: new Date().toISOString(),
+        readCount: 1,
+        readDuration: readDuration || 0,
+        totalReadDuration: readDuration || 0
+      };
+      safeDbWrite(db.get('readHistory').push(entry));
+    }
+
+    // Also track in analytics
+    safeDbWrite(
+      db.get('analytics.articleViews').push({
+        articleId: articleId || podcastId,
+        userId,
+        timestamp: new Date().toISOString(),
+        type: articleId ? 'article' : 'podcast'
+      })
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error tracking read:', err);
+    res.status(500).json({ error: 'Failed to track read' });
+  }
+});
+
+// Check if item is read
+app.get('/api/history/check', authenticateToken, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { articleId, podcastId } = req.query;
+
+    const isRead = db.get('readHistory').find(h =>
+      h.userId === userId &&
+      ((articleId && h.articleId === parseFloat(articleId)) || (podcastId && h.podcastId === podcastId))
+    ).value();
+
+    res.json({ isRead: !!isRead, entry: isRead || null });
+  } catch (err) {
+    console.error('Error checking read status:', err);
+    res.status(500).json({ error: 'Failed to check read status' });
+  }
+});
+
+// ==================== ANALYTICS API ====================
+
+// Get analytics dashboard data
+app.get('/api/analytics', authenticateToken, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const days = parseInt(req.query.days) || 30;
+    const isAdmin = req.user.role === 'admin';
+
+    const analytics = db.get('analytics').value();
+    const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    // Personal stats
+    const userViews = analytics.articleViews.filter(v =>
+      v.userId === userId && v.timestamp > cutoffDate
+    );
+    const userSearches = analytics.searchQueries.filter(q =>
+      q.userId === userId && q.timestamp > cutoffDate
+    );
+    const userChats = (analytics.chatQueries || []).filter(c =>
+      c.userId === userId && c.timestamp > cutoffDate
+    );
+
+    const userBookmarks = db.get('bookmarks').filter({ userId }).size().value();
+    const userReadHistory = db.get('readHistory').filter({ userId }).size().value();
+
+    // Category breakdown for user
+    const categoryViews = {};
+    userViews.forEach(v => {
+      if (v.articleId) {
+        const article = db.get('articles').find({ id: v.articleId }).value();
+        if (article) {
+          categoryViews[article.category] = (categoryViews[article.category] || 0) + 1;
+        }
+      }
+    });
+
+    const response = {
+      personal: {
+        articlesRead: userViews.filter(v => v.type === 'article').length,
+        podcastsRead: userViews.filter(v => v.type === 'podcast').length,
+        totalSearches: userSearches.length,
+        totalChats: userChats.length,
+        bookmarksCount: userBookmarks,
+        readHistoryCount: userReadHistory,
+        topCategories: Object.entries(categoryViews)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([category, count]) => ({ category, count })),
+        recentSearches: userSearches.slice(-10).reverse().map(s => s.query)
+      },
+      period: { days, from: cutoffDate, to: new Date().toISOString() }
+    };
+
+    // Admin-only aggregate stats
+    if (isAdmin) {
+      const dailyStats = analytics.dailyStats
+        .filter(s => s.date > cutoffDate.split('T')[0])
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      // Feed health overview
+      const feeds = db.get('feeds').value();
+      const healthyFeeds = feeds.filter(f => (f.healthScore || 100) >= 70).length;
+      const unhealthyFeeds = feeds.filter(f => (f.healthScore || 100) < 30).length;
+
+      response.admin = {
+        dailyStats,
+        feedHealth: {
+          total: feeds.length,
+          healthy: healthyFeeds,
+          warning: feeds.length - healthyFeeds - unhealthyFeeds,
+          unhealthy: unhealthyFeeds,
+          avgHealthScore: Math.round(feeds.reduce((sum, f) => sum + (f.healthScore || 100), 0) / feeds.length)
+        },
+        totalUsers: db.get('users').size().value(),
+        totalArticles: db.get('articles').size().value(),
+        totalPodcasts: cache.transcripts?.length || 0
+      };
+    }
+
+    res.json(response);
+  } catch (err) {
+    console.error('Error fetching analytics:', err);
+    res.status(500).json({ error: 'Failed to fetch analytics' });
+  }
+});
+
+// Track search (for analytics)
+app.post('/api/analytics/search', authenticateToken, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { query, resultsCount } = req.body;
+
+    safeDbWrite(
+      db.get('analytics.searchQueries').push({
+        query,
+        userId,
+        timestamp: new Date().toISOString(),
+        resultsCount: resultsCount || 0
+      })
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error tracking search:', err);
+    res.status(500).json({ error: 'Failed to track search' });
+  }
+});
+
+// ==================== ARTICLE SUMMARY API ====================
+
+// Get or generate article summary
+app.post('/api/summarize', authenticateToken, async (req, res) => {
+  try {
+    const { articleId, podcastId, forceRegenerate } = req.body;
+    const userId = req.user.id;
+
+    if (!articleId && !podcastId) {
+      return res.status(400).json({ error: 'articleId or podcastId is required' });
+    }
+
+    const itemId = articleId || podcastId;
+    const itemType = articleId ? 'article' : 'podcast';
+
+    // Check for existing summary
+    if (!forceRegenerate) {
+      const existing = db.get('articleSummaries').find({ itemId, itemType }).value();
+      if (existing) {
+        return res.json({ summary: existing.summary, cached: true, generatedAt: existing.generatedAt });
+      }
+    }
+
+    // Get the content to summarize
+    let content, title;
+    if (articleId) {
+      const article = db.get('articles').find({ id: parseFloat(articleId) }).value();
+      if (!article) {
+        return res.status(404).json({ error: 'Article not found' });
+      }
+      content = article.content || article.description;
+      title = article.title;
+    } else {
+      const podcast = cache.transcripts?.find(t => t.id === podcastId);
+      if (!podcast) {
+        return res.status(404).json({ error: 'Podcast not found' });
+      }
+      content = podcast.content?.slice(0, 15000); // Limit podcast content
+      title = podcast.title;
+    }
+
+    if (!content || content.length < 100) {
+      return res.status(400).json({ error: 'Not enough content to summarize' });
+    }
+
+    // Get user's AI settings
+    const user = db.get('users').find({ id: userId }).value();
+    const aiProvider = user?.settings?.preferences?.defaultAIProvider || 'openai';
+
+    // Generate summary using AI
+    const summaryPrompt = `Please provide a concise summary (3-5 bullet points) of the following ${itemType}. Focus on key insights, actionable takeaways, and main topics covered.
+
+Title: ${title}
+
+Content:
+${content.slice(0, 8000)}
+
+Provide the summary in markdown format with bullet points.`;
+
+    // Use the chat service to generate summary
+    const { createAIService } = require('./services/ai');
+    const aiService = createAIService(aiProvider, user?.settings?.apiKeys, user?.settings?.preferences);
+
+    if (!aiService) {
+      return res.status(400).json({ error: 'No AI provider configured. Please add an API key in settings.' });
+    }
+
+    const summary = await aiService.chat([
+      { role: 'system', content: 'You are a helpful assistant that creates concise, insightful summaries of product management content.' },
+      { role: 'user', content: summaryPrompt }
+    ]);
+
+    // Store the summary
+    const summaryRecord = {
+      id: `sum-${Date.now()}`,
+      itemId,
+      itemType,
+      title,
+      summary,
+      generatedAt: new Date().toISOString(),
+      generatedBy: userId,
+      model: aiProvider
+    };
+
+    // Remove old summary if exists
+    safeDbWrite(db.get('articleSummaries').remove({ itemId, itemType }));
+    safeDbWrite(db.get('articleSummaries').push(summaryRecord));
+
+    res.json({ summary, cached: false, generatedAt: summaryRecord.generatedAt });
+  } catch (err) {
+    console.error('Error generating summary:', err);
+    res.status(500).json({ error: 'Failed to generate summary' });
+  }
+});
+
+// ==================== EXPORT API ====================
+
+// Export bookmarks to various formats
+app.get('/api/export/bookmarks', authenticateToken, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const format = req.query.format || 'json'; // json, markdown, notion, obsidian
+
+    const bookmarks = db.get('bookmarks')
+      .filter({ userId })
+      .orderBy(['createdAt'], ['desc'])
+      .value();
+
+    // Enrich bookmarks
+    const enrichedBookmarks = bookmarks.map(bookmark => {
+      if (bookmark.articleId) {
+        const article = db.get('articles').find({ id: bookmark.articleId }).value();
+        return { ...bookmark, item: article, type: 'article' };
+      } else if (bookmark.podcastId) {
+        const podcast = cache.transcripts?.find(t => t.id === bookmark.podcastId);
+        return { ...bookmark, item: podcast, type: 'podcast' };
+      }
+      return bookmark;
+    }).filter(b => b.item);
+
+    if (format === 'json') {
+      res.setHeader('Content-Disposition', 'attachment; filename=productsnap-bookmarks.json');
+      res.json(enrichedBookmarks);
+      return;
+    }
+
+    if (format === 'markdown' || format === 'obsidian') {
+      let markdown = `# ProductSnap Bookmarks\n\nExported on ${new Date().toLocaleDateString()}\n\n`;
+
+      // Group by category
+      const byCategory = {};
+      enrichedBookmarks.forEach(b => {
+        const cat = b.item.category || 'Uncategorized';
+        if (!byCategory[cat]) byCategory[cat] = [];
+        byCategory[cat].push(b);
+      });
+
+      for (const [category, items] of Object.entries(byCategory)) {
+        markdown += `## ${category}\n\n`;
+        for (const bookmark of items) {
+          const item = bookmark.item;
+          markdown += `### ${item.title}\n`;
+          markdown += `- **Source**: ${item.feedName || 'Unknown'}\n`;
+          markdown += `- **Link**: ${item.link || 'N/A'}\n`;
+          markdown += `- **Date**: ${item.pubDate ? new Date(item.pubDate).toLocaleDateString() : 'N/A'}\n`;
+          if (bookmark.notes) {
+            markdown += `- **Notes**: ${bookmark.notes}\n`;
+          }
+          markdown += `\n${item.description || ''}\n\n---\n\n`;
+        }
+      }
+
+      res.setHeader('Content-Type', 'text/markdown');
+      res.setHeader('Content-Disposition', 'attachment; filename=productsnap-bookmarks.md');
+      res.send(markdown);
+      return;
+    }
+
+    if (format === 'notion') {
+      // Notion-compatible CSV format
+      let csv = 'Title,Category,Source,Link,Date,Notes,Description\n';
+
+      enrichedBookmarks.forEach(b => {
+        const item = b.item;
+        const row = [
+          `"${(item.title || '').replace(/"/g, '""')}"`,
+          `"${item.category || ''}"`,
+          `"${item.feedName || ''}"`,
+          `"${item.link || ''}"`,
+          `"${item.pubDate ? new Date(item.pubDate).toISOString() : ''}"`,
+          `"${(b.notes || '').replace(/"/g, '""')}"`,
+          `"${(item.description || '').slice(0, 500).replace(/"/g, '""')}"`
+        ];
+        csv += row.join(',') + '\n';
+      });
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=productsnap-bookmarks-notion.csv');
+      res.send(csv);
+      return;
+    }
+
+    res.status(400).json({ error: 'Invalid format. Use: json, markdown, obsidian, or notion' });
+  } catch (err) {
+    console.error('Error exporting bookmarks:', err);
+    res.status(500).json({ error: 'Failed to export bookmarks' });
+  }
+});
+
+// Export read history
+app.get('/api/export/history', authenticateToken, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const format = req.query.format || 'json';
+
+    const history = db.get('readHistory')
+      .filter({ userId })
+      .orderBy(['readAt'], ['desc'])
+      .value();
+
+    // Enrich history
+    const enrichedHistory = history.map(entry => {
+      if (entry.articleId) {
+        const article = db.get('articles').find({ id: entry.articleId }).value();
+        return { ...entry, item: article, type: 'article' };
+      } else if (entry.podcastId) {
+        const podcast = cache.transcripts?.find(t => t.id === entry.podcastId);
+        return { ...entry, item: podcast, type: 'podcast' };
+      }
+      return entry;
+    }).filter(h => h.item);
+
+    if (format === 'json') {
+      res.setHeader('Content-Disposition', 'attachment; filename=productsnap-history.json');
+      res.json(enrichedHistory);
+      return;
+    }
+
+    if (format === 'markdown') {
+      let markdown = `# ProductSnap Reading History\n\nExported on ${new Date().toLocaleDateString()}\n\n`;
+      markdown += `Total items read: ${enrichedHistory.length}\n\n---\n\n`;
+
+      for (const entry of enrichedHistory) {
+        const item = entry.item;
+        markdown += `## ${item.title}\n`;
+        markdown += `- **Read on**: ${new Date(entry.readAt).toLocaleDateString()}\n`;
+        markdown += `- **Type**: ${entry.type}\n`;
+        markdown += `- **Category**: ${item.category || 'N/A'}\n`;
+        markdown += `- **Link**: ${item.link || 'N/A'}\n\n`;
+      }
+
+      res.setHeader('Content-Type', 'text/markdown');
+      res.setHeader('Content-Disposition', 'attachment; filename=productsnap-history.md');
+      res.send(markdown);
+      return;
+    }
+
+    res.status(400).json({ error: 'Invalid format. Use: json or markdown' });
+  } catch (err) {
+    console.error('Error exporting history:', err);
+    res.status(500).json({ error: 'Failed to export history' });
+  }
+});
+
+// ==================== EMAIL DIGEST API ====================
+
+// Subscribe to email digest
+app.post('/api/digest/subscribe', authenticateToken, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { email, frequency, preferences } = req.body;
+    // frequency: 'daily' | 'weekly'
+    // preferences: { categories: [], maxArticles: number }
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const existingSub = db.get('emailDigest.subscribers').find({ userId }).value();
+
+    if (existingSub) {
+      // Update existing subscription
+      safeDbWrite(
+        db.get('emailDigest.subscribers')
+          .find({ userId })
+          .assign({
+            email,
+            frequency: frequency || 'daily',
+            preferences: preferences || {},
+            updatedAt: new Date().toISOString()
+          })
+      );
+    } else {
+      // Create new subscription
+      safeDbWrite(
+        db.get('emailDigest.subscribers').push({
+          id: `digest-${Date.now()}`,
+          userId,
+          email,
+          frequency: frequency || 'daily',
+          preferences: preferences || {},
+          lastSent: null,
+          createdAt: new Date().toISOString()
+        })
+      );
+    }
+
+    res.json({ success: true, message: 'Subscribed to email digest' });
+  } catch (err) {
+    console.error('Error subscribing to digest:', err);
+    res.status(500).json({ error: 'Failed to subscribe' });
+  }
+});
+
+// Unsubscribe from email digest
+app.delete('/api/digest/subscribe', authenticateToken, (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    safeDbWrite(db.get('emailDigest.subscribers').remove({ userId }));
+
+    res.json({ success: true, message: 'Unsubscribed from email digest' });
+  } catch (err) {
+    console.error('Error unsubscribing:', err);
+    res.status(500).json({ error: 'Failed to unsubscribe' });
+  }
+});
+
+// Get digest subscription status
+app.get('/api/digest/status', authenticateToken, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const subscription = db.get('emailDigest.subscribers').find({ userId }).value();
+
+    res.json({
+      subscribed: !!subscription,
+      subscription: subscription || null
+    });
+  } catch (err) {
+    console.error('Error fetching digest status:', err);
+    res.status(500).json({ error: 'Failed to fetch status' });
+  }
+});
+
+// Preview digest content (what would be sent)
+app.get('/api/digest/preview', authenticateToken, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const subscription = db.get('emailDigest.subscribers').find({ userId }).value();
+
+    // Get articles from last 24 hours (daily) or 7 days (weekly)
+    const hoursBack = subscription?.frequency === 'weekly' ? 168 : 24;
+    const cutoff = new Date(Date.now() - hoursBack * 60 * 60 * 1000).toISOString();
+
+    let articles = db.get('articles')
+      .filter(a => a.fetchedAt > cutoff)
+      .orderBy(['pubDate'], ['desc'])
+      .take(subscription?.preferences?.maxArticles || 10)
+      .value();
+
+    // Filter by preferred categories if set
+    if (subscription?.preferences?.categories?.length > 0) {
+      articles = articles.filter(a =>
+        subscription.preferences.categories.includes(a.category)
+      );
+    }
+
+    res.json({
+      previewFor: subscription?.frequency || 'daily',
+      articlesCount: articles.length,
+      articles: articles.map(a => ({
+        title: a.title,
+        category: a.category,
+        feedName: a.feedName,
+        pubDate: a.pubDate,
+        link: a.link,
+        description: a.description?.slice(0, 200)
+      }))
+    });
+  } catch (err) {
+    console.error('Error generating preview:', err);
+    res.status(500).json({ error: 'Failed to generate preview' });
+  }
+});
+
+// ==================== FEED HEALTH API ====================
+
+// Get feed health status (admin only)
+app.get('/api/feeds/health', authenticateToken, requireAdmin, (req, res) => {
+  try {
+    const feeds = db.get('feeds').value();
+
+    const feedHealth = feeds.map(feed => ({
+      id: feed.id,
+      name: feed.name,
+      category: feed.category,
+      healthScore: feed.healthScore || 100,
+      consecutiveErrors: feed.consecutiveErrors || 0,
+      lastFetched: feed.lastFetched,
+      lastArticleDate: feed.lastArticleDate,
+      avgPostsPerWeek: feed.avgPostsPerWeek || 0,
+      status: (feed.healthScore || 100) >= 70 ? 'healthy' :
+              (feed.healthScore || 100) >= 30 ? 'warning' : 'unhealthy'
+    })).sort((a, b) => a.healthScore - b.healthScore); // Show unhealthy first
+
+    res.json({
+      feeds: feedHealth,
+      summary: {
+        total: feeds.length,
+        healthy: feedHealth.filter(f => f.status === 'healthy').length,
+        warning: feedHealth.filter(f => f.status === 'warning').length,
+        unhealthy: feedHealth.filter(f => f.status === 'unhealthy').length
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching feed health:', err);
+    res.status(500).json({ error: 'Failed to fetch feed health' });
+  }
+});
+
+// ==================== USER FILES API ====================
+
+// Parse file content based on type
+async function parseFileContent(filePath, mimeType, originalName) {
+  const ext = path.extname(originalName).toLowerCase();
+
+  try {
+    if (ext === '.txt' || ext === '.md' || mimeType === 'text/plain' || mimeType === 'text/markdown') {
+      return fs.readFileSync(filePath, 'utf-8');
+    }
+
+    if (ext === '.pdf' || mimeType === 'application/pdf') {
+      const dataBuffer = fs.readFileSync(filePath);
+      const pdfData = await pdfParse(dataBuffer);
+      return pdfData.text;
+    }
+
+    // For DOCX, we'll extract text using a simple approach
+    if (ext === '.docx') {
+      // Basic DOCX text extraction (docx files are zip archives)
+      const AdmZip = require('adm-zip');
+      const zip = new AdmZip(filePath);
+      const docXml = zip.readAsText('word/document.xml');
+      // Remove XML tags to get plain text
+      return docXml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    return '';
+  } catch (err) {
+    console.error('Error parsing file:', err);
+    return '';
+  }
+}
+
+// Upload files
+app.post('/api/files/upload', authenticateToken, upload.array('files', 5), async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
+
+    const userId = req.user.id;
+    const uploadedFiles = [];
+
+    for (const file of req.files) {
+      // Parse file content
+      const content = await parseFileContent(file.path, file.mimetype, file.originalname);
+
+      if (!content || content.length < 10) {
+        // Delete file if we couldn't parse it
+        fs.unlinkSync(file.path);
+        continue;
+      }
+
+      const fileRecord = {
+        id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        userId,
+        filename: file.filename,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        size: file.size,
+        content: content, // Store extracted text content
+        wordCount: content.split(/\s+/).length,
+        uploadedAt: new Date().toISOString()
+      };
+
+      safeDbWrite(db.get('userFiles').push(fileRecord));
+      uploadedFiles.push({
+        ...fileRecord,
+        content: undefined // Don't send content back in response
+      });
+    }
+
+    res.json({
+      success: true,
+      files: uploadedFiles,
+      count: uploadedFiles.length
+    });
+  } catch (err) {
+    console.error('Error uploading files:', err);
+    res.status(500).json({ error: 'Failed to upload files' });
+  }
+});
+
+// Get user's files
+app.get('/api/files', authenticateToken, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const files = db.get('userFiles')
+      .filter({ userId })
+      .orderBy(['uploadedAt'], ['desc'])
+      .value()
+      .map(f => ({
+        ...f,
+        content: undefined // Don't send content in list
+      }));
+
+    res.json({ files, total: files.length });
+  } catch (err) {
+    console.error('Error fetching files:', err);
+    res.status(500).json({ error: 'Failed to fetch files' });
+  }
+});
+
+// Get single file with content
+app.get('/api/files/:id', authenticateToken, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const fileId = req.params.id;
+
+    const file = db.get('userFiles').find({ id: fileId, userId }).value();
+
+    if (!file) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    res.json(file);
+  } catch (err) {
+    console.error('Error fetching file:', err);
+    res.status(500).json({ error: 'Failed to fetch file' });
+  }
+});
+
+// Delete file
+app.delete('/api/files/:id', authenticateToken, (req, res) => {
+  try {
+    const userId = req.user.id;
+    const fileId = req.params.id;
+
+    const file = db.get('userFiles').find({ id: fileId, userId }).value();
+
+    if (!file) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    // Delete physical file
+    const filePath = path.join(UPLOADS_DIR, userId, file.filename);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
+    // Delete from database
+    safeDbWrite(db.get('userFiles').remove({ id: fileId }));
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error deleting file:', err);
+    res.status(500).json({ error: 'Failed to delete file' });
   }
 });
 
@@ -2036,17 +3166,120 @@ async function initialize() {
   // Load Lenny's Podcast transcripts
   await loadPodcastTranscripts();
 
-  console.log('\nPerforming initial feed fetch...');
-  await fetchAllFeeds();
+  console.log('\nPerforming initial smart feed fetch...');
+  await smartFeedRefresh();
 
-  // Schedule automatic updates every 2 hours for comprehensive coverage
+  // Schedule smart feed updates every 2 hours
   cron.schedule('0 */2 * * *', async () => {
-    console.log('\n[CRON] Scheduled feed update starting...');
-    await fetchAllFeeds();
+    console.log('\n[CRON] Scheduled smart feed update starting...');
+    await smartFeedRefresh();
   });
 
-  console.log('\n✓ Cron job scheduled: Feed updates every 2 hours');
+  // Schedule daily digest preparation at 6 AM
+  cron.schedule('0 6 * * *', async () => {
+    console.log('\n[CRON] Preparing daily email digests...');
+    await prepareDailyDigests();
+  });
+
+  // Schedule weekly digest on Mondays at 8 AM
+  cron.schedule('0 8 * * 1', async () => {
+    console.log('\n[CRON] Preparing weekly email digests...');
+    await prepareWeeklyDigests();
+  });
+
+  console.log('\n✓ Cron jobs scheduled:');
+  console.log('  - Smart feed updates every 2 hours');
+  console.log('  - Daily digest at 6 AM');
+  console.log('  - Weekly digest on Mondays at 8 AM');
   console.log(`✓ ${cache.transcripts?.length || 0} Lenny's Podcast transcripts loaded`);
+}
+
+// Prepare daily digests (placeholder - actual sending requires email service)
+async function prepareDailyDigests() {
+  const subscribers = db.get('emailDigest.subscribers')
+    .filter({ frequency: 'daily' })
+    .value();
+
+  console.log(`Preparing digests for ${subscribers.length} daily subscribers`);
+
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const newArticles = db.get('articles')
+    .filter(a => a.fetchedAt > cutoff)
+    .orderBy(['pubDate'], ['desc'])
+    .value();
+
+  for (const sub of subscribers) {
+    let articles = newArticles;
+
+    // Filter by preferences
+    if (sub.preferences?.categories?.length > 0) {
+      articles = articles.filter(a => sub.preferences.categories.includes(a.category));
+    }
+
+    articles = articles.slice(0, sub.preferences?.maxArticles || 10);
+
+    // Log digest preparation (actual email sending requires nodemailer or similar)
+    console.log(`  - ${sub.email}: ${articles.length} articles ready`);
+
+    // Update last sent timestamp
+    safeDbWrite(
+      db.get('emailDigest.subscribers')
+        .find({ id: sub.id })
+        .assign({ lastSent: new Date().toISOString() })
+    );
+
+    // Record sent digest
+    safeDbWrite(
+      db.get('emailDigest.sentDigests').push({
+        id: `sent-${Date.now()}`,
+        userId: sub.userId,
+        sentAt: new Date().toISOString(),
+        articlesIncluded: articles.map(a => a.id)
+      })
+    );
+  }
+}
+
+// Prepare weekly digests
+async function prepareWeeklyDigests() {
+  const subscribers = db.get('emailDigest.subscribers')
+    .filter({ frequency: 'weekly' })
+    .value();
+
+  console.log(`Preparing digests for ${subscribers.length} weekly subscribers`);
+
+  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const newArticles = db.get('articles')
+    .filter(a => a.fetchedAt > cutoff)
+    .orderBy(['pubDate'], ['desc'])
+    .value();
+
+  for (const sub of subscribers) {
+    let articles = newArticles;
+
+    if (sub.preferences?.categories?.length > 0) {
+      articles = articles.filter(a => sub.preferences.categories.includes(a.category));
+    }
+
+    articles = articles.slice(0, sub.preferences?.maxArticles || 20);
+
+    console.log(`  - ${sub.email}: ${articles.length} articles ready`);
+
+    safeDbWrite(
+      db.get('emailDigest.subscribers')
+        .find({ id: sub.id })
+        .assign({ lastSent: new Date().toISOString() })
+    );
+
+    safeDbWrite(
+      db.get('emailDigest.sentDigests').push({
+        id: `sent-${Date.now()}`,
+        userId: sub.userId,
+        sentAt: new Date().toISOString(),
+        articlesIncluded: articles.map(a => a.id)
+      })
+    );
+  }
 }
 
 // Start server

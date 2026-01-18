@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { LogOut, Settings, Shield, User, MessageSquare } from 'lucide-react'
+import { LogOut, Settings, Shield, User, MessageSquare, Bookmark, BarChart3, History, FolderOpen } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
 export function UserMenu() {
@@ -59,13 +59,26 @@ export function UserMenu() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => { navigate('/settings'); setOpen(false); }}>
-          <Settings className="mr-2 h-4 w-4" />
-          <span>Settings</span>
-        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => { navigate('/chat'); setOpen(false); }}>
           <MessageSquare className="mr-2 h-4 w-4" />
           <span>AI Chat</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => { navigate('/my-files'); setOpen(false); }}>
+          <FolderOpen className="mr-2 h-4 w-4" />
+          <span>My Files</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => { navigate('/bookmarks'); setOpen(false); }}>
+          <Bookmark className="mr-2 h-4 w-4" />
+          <span>Bookmarks</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => { navigate('/analytics'); setOpen(false); }}>
+          <BarChart3 className="mr-2 h-4 w-4" />
+          <span>My Analytics</span>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => { navigate('/settings'); setOpen(false); }}>
+          <Settings className="mr-2 h-4 w-4" />
+          <span>Settings</span>
         </DropdownMenuItem>
         {isAdmin && (
           <>

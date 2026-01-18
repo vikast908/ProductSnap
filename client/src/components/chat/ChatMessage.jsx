@@ -4,8 +4,24 @@ import rehypeHighlight from 'rehype-highlight'
 import 'highlight.js/styles/github-dark.css'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { Bot, User, ExternalLink, Mic, FileText, Copy, Check } from 'lucide-react'
+import { Bot, User, ExternalLink, Mic, FileText, Copy, Check, ChevronDown, ChevronUp, Sparkles, Circle } from 'lucide-react'
 import { useState } from 'react'
+
+// Relevance indicator component
+function RelevanceIndicator({ relevance }) {
+  const colors = {
+    high: 'text-green-500',
+    medium: 'text-yellow-500',
+    low: 'text-muted-foreground/50'
+  }
+
+  return (
+    <Circle
+      className={`h-2 w-2 fill-current ${colors[relevance] || colors.medium}`}
+      title={`${relevance} relevance`}
+    />
+  )
+}
 
 // Code block component with copy button
 function CodeBlock({ children, className, ...props }) {
@@ -50,6 +66,111 @@ function CodeBlock({ children, className, ...props }) {
         </code>
       </pre>
     </div>
+  )
+}
+
+// Collapsible sources panel
+function SourcesPanel({ sources }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  // Group sources by relevance
+  const highRelevance = sources.filter(s => s.relevance === 'high')
+  const mediumRelevance = sources.filter(s => s.relevance === 'medium')
+  const lowRelevance = sources.filter(s => s.relevance === 'low' || !s.relevance)
+
+  // Show top sources by default (high + some medium)
+  const defaultVisibleCount = 5
+  const topSources = [...highRelevance, ...mediumRelevance].slice(0, defaultVisibleCount)
+  const remainingSources = sources.slice(defaultVisibleCount)
+  const hasMoreSources = remainingSources.length > 0
+
+  const visibleSources = isExpanded ? sources : topSources
+
+  return (
+    <div className="space-y-2">
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex items-center gap-2 text-xs text-muted-foreground font-medium hover:text-foreground transition-colors"
+      >
+        {isExpanded ? (
+          <ChevronUp className="h-3.5 w-3.5" />
+        ) : (
+          <ChevronDown className="h-3.5 w-3.5" />
+        )}
+        <span>
+          Sources ({sources.length})
+          {highRelevance.length > 0 && (
+            <span className="ml-1 text-green-500">
+              {highRelevance.length} highly relevant
+            </span>
+          )}
+        </span>
+      </button>
+
+      <div className={`space-y-1.5 ${isExpanded ? '' : 'max-h-[120px] overflow-hidden'}`}>
+        {/* High relevance sources */}
+        {visibleSources.filter(s => s.relevance === 'high').length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {visibleSources.filter(s => s.relevance === 'high').map((source, idx) => (
+              <SourceBadge key={`high-${idx}`} source={source} />
+            ))}
+          </div>
+        )}
+
+        {/* Medium relevance sources */}
+        {visibleSources.filter(s => s.relevance === 'medium').length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {visibleSources.filter(s => s.relevance === 'medium').map((source, idx) => (
+              <SourceBadge key={`med-${idx}`} source={source} />
+            ))}
+          </div>
+        )}
+
+        {/* Low relevance sources (only when expanded) */}
+        {isExpanded && visibleSources.filter(s => s.relevance === 'low' || !s.relevance).length > 0 && (
+          <div className="flex flex-wrap gap-1.5 opacity-60">
+            {visibleSources.filter(s => s.relevance === 'low' || !s.relevance).map((source, idx) => (
+              <SourceBadge key={`low-${idx}`} source={source} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Show more/less toggle */}
+      {hasMoreSources && !isExpanded && (
+        <button
+          onClick={() => setIsExpanded(true)}
+          className="text-xs text-primary hover:underline"
+        >
+          + {remainingSources.length} more sources
+        </button>
+      )}
+    </div>
+  )
+}
+
+// Individual source badge
+function SourceBadge({ source }) {
+  return (
+    <Badge
+      variant="outline"
+      className="cursor-pointer hover:bg-muted flex items-center gap-1.5 text-xs py-0.5"
+      onClick={() => source.url && window.open(source.url, '_blank')}
+    >
+      <RelevanceIndicator relevance={source.relevance} />
+      {source.type === 'podcast' ? (
+        <Mic className="h-3 w-3 text-purple-500" />
+      ) : (
+        <FileText className="h-3 w-3 text-blue-500" />
+      )}
+      <span className="truncate max-w-[180px]">
+        {source.type === 'podcast'
+          ? source.guest
+          : source.title
+        }
+      </span>
+      {source.url && <ExternalLink className="h-2.5 w-2.5 opacity-50" />}
+    </Badge>
   )
 }
 
@@ -158,34 +279,9 @@ export function ChatMessage({ message, user }) {
           )}
         </div>
 
-        {/* Sources */}
+        {/* Sources - Collapsible */}
         {isAssistant && message.sources && message.sources.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-xs text-muted-foreground font-medium">Sources:</p>
-            <div className="flex flex-wrap gap-2">
-              {message.sources.map((source, idx) => (
-                <Badge
-                  key={idx}
-                  variant="outline"
-                  className="cursor-pointer hover:bg-muted flex items-center gap-1"
-                  onClick={() => source.url && window.open(source.url, '_blank')}
-                >
-                  {source.type === 'podcast' ? (
-                    <Mic className="h-3 w-3" />
-                  ) : (
-                    <FileText className="h-3 w-3" />
-                  )}
-                  <span className="truncate max-w-[200px]">
-                    {source.type === 'podcast'
-                      ? `Lenny's Podcast: ${source.guest}`
-                      : source.title
-                    }
-                  </span>
-                  {source.url && <ExternalLink className="h-3 w-3" />}
-                </Badge>
-              ))}
-            </div>
-          </div>
+          <SourcesPanel sources={message.sources} />
         )}
 
         {/* Provider info */}

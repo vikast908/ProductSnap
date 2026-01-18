@@ -107,14 +107,18 @@ function createChatRoutes(db, cache) {
         });
       }
 
-      // Search for relevant content (RAG) - searches ALL articles & podcasts, returns top 50
+      // Get user's uploaded files for personalized RAG
+      const userFiles = db.get('userFiles').filter({ userId: req.user.id }).value() || [];
+
+      // Search for relevant content (RAG) - searches ALL articles, podcasts, and user files
       const searchResults = searchContent(message, db, cache, {
         maxResults: 50,
         includeArticles: true,
-        includePodcasts: true
+        includePodcasts: true,
+        userFiles: userFiles // Include user's personal files in search
       });
 
-      console.log(`RAG search found ${searchResults.totalFound} relevant items for query: "${message.slice(0, 50)}..."`);
+      console.log(`RAG search found ${searchResults.totalFound} relevant items (including ${userFiles.length} user files) for query: "${message.slice(0, 50)}..."`);
 
       // Get the selected model from user preferences
       const modelKey = `${selectedProvider}Model`;

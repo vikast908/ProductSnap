@@ -8,7 +8,7 @@
 
 ProductSnap is a comprehensive content aggregator designed for product managers, providing curated articles from 167+ RSS feeds, 298 Lenny's Podcast transcripts, and an AI-powered chat assistant with full RAG search across all content.
 
-![Version](https://img.shields.io/badge/version-3.1.0-blue)
+![Version](https://img.shields.io/badge/version-3.2.0-blue)
 ![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-green)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -20,15 +20,32 @@ ProductSnap is a comprehensive content aggregator designed for product managers,
 - **167+ RSS Feeds** - Curated from top PM publications, thought leaders, and tech companies
 - **298 Lenny's Podcast Transcripts** - Full searchable transcripts (4.5M+ words) from the #1 PM podcast
 - **3,300+ Articles** - Continuously growing knowledge base
-- **Auto-refresh** - Feeds update automatically every 2 hours
+- **Smart Feed Refresh** - Priority-based updates with health scoring
+- **My Files** - Upload your own documents (PDF, TXT, MD, DOCX) and chat with them
 
 ### AI-Powered Chat (RAG)
-- **Full Knowledge Base Search** - AI searches ALL articles and podcasts, returns top 50 most relevant sources
+- **Full Knowledge Base Search** - AI searches ALL articles, podcasts, and your files
 - **Multi-provider Support** - OpenAI (GPT-4o, o1), Anthropic (Claude), Google (Gemini)
 - **Token-Optimized Context** - Tiered snippet strategy saves ~47% tokens while keeping all 50 sources
+- **Improved Relevance** - Query intent analysis, minimum score thresholds, normalized scoring
+- **Collapsible Sources** - Expand/collapse sources with relevance indicators (high/medium/low)
 - **Rich Formatting** - Syntax-highlighted code blocks, tables, lists, and blockquotes
 - **Source Citations** - Every AI response includes clickable source references
 - **Copy Code Button** - One-click copy for code snippets with language labels
+
+### Personal Features (New in v3.2)
+- **Bookmarks** - Save articles and podcasts with notes, export to Notion/Obsidian
+- **Read History** - Track what you've read with duration tracking
+- **My Analytics** - Personal reading stats, top categories, search history
+- **My Files** - Upload documents to include in AI chat context
+- **AI Summaries** - Generate article/podcast summaries on demand
+- **Email Digest** - Daily/weekly email digest subscription (configurable)
+
+### Smart Feed Management
+- **Feed Health Scores** - 0-100 health rating based on activity and errors
+- **Priority Refresh** - Active feeds refreshed more frequently
+- **Error Tracking** - Consecutive errors and automatic health degradation
+- **Admin Dashboard** - Feed health overview with healthy/warning/unhealthy counts
 
 ### Authentication & Security
 - **Google OAuth** - Secure login with Google accounts
@@ -134,6 +151,9 @@ Visit **http://localhost:3000** in your browser.
 - JSON Web Tokens - Session management (httpOnly cookies)
 - Node.js crypto - AES-256-GCM encryption
 - rss-parser - RSS feed parsing
+- multer - File upload handling
+- pdf-parse - PDF text extraction
+- adm-zip - DOCX file parsing
 - OpenAI/Anthropic/Google SDKs - AI providers
 
 **Frontend:**
@@ -174,6 +194,8 @@ productsnap/
 │   └── rag/
 │       └── search.js      # RAG content search (50 sources)
 │
+├── uploads/                # User uploaded files (per-user folders)
+│
 ├── client/                 # React frontend
 │   ├── src/
 │   │   ├── App.jsx        # Main app component
@@ -184,9 +206,12 @@ productsnap/
 │   │   └── components/
 │   │       ├── ui/        # ShadCN/Radix UI components
 │   │       ├── auth/      # Login, UserMenu
-│   │       ├── chat/      # ChatBox, ChatMessage
+│   │       ├── chat/      # ChatBox, ChatMessage (with collapsible sources)
 │   │       ├── settings/  # SettingsPage
-│   │       └── admin/     # AdminPanel, UserManager
+│   │       ├── admin/     # AdminPanel, UserManager
+│   │       ├── bookmarks/ # BookmarksPage
+│   │       ├── analytics/ # AnalyticsPage
+│   │       └── files/     # MyFilesPage
 │   └── dist/              # Built frontend
 │
 └── Lenny's Podcast Transcripts Archive/
@@ -220,6 +245,20 @@ productsnap/
 | `/api/settings/api-keys` | PUT | Any | Save API keys |
 | `/api/chat` | POST | Any | AI chat with RAG (50 sources) |
 | `/api/chat/providers` | GET | Any | Get AI providers |
+| `/api/bookmarks` | GET/POST | Any | List/add bookmarks |
+| `/api/bookmarks/:id` | DELETE/PATCH | Any | Remove/update bookmark |
+| `/api/history` | GET/POST | Any | Get/track read history |
+| `/api/history/check` | GET | Any | Check if item is read |
+| `/api/analytics` | GET | Any | Get user analytics |
+| `/api/summarize` | POST | Any | Generate AI summary |
+| `/api/files` | GET/POST | Any | List/upload files |
+| `/api/files/:id` | GET/DELETE | Any | Get/delete file |
+| `/api/export/bookmarks` | GET | Any | Export bookmarks (JSON/MD/CSV) |
+| `/api/export/history` | GET | Any | Export read history |
+| `/api/digest/subscribe` | POST/DELETE | Any | Subscribe/unsubscribe digest |
+| `/api/digest/status` | GET | Any | Get digest subscription status |
+| `/api/digest/preview` | GET | Any | Preview digest content |
+| `/api/feeds/health` | GET | Admin | Get feed health status |
 | `/api/admin/users` | GET | Admin | List all users |
 | `/api/admin/users/:id/role` | PUT | Admin | Change user role |
 | `/api/refresh` | POST | Admin | Manual feed refresh |
@@ -228,25 +267,32 @@ productsnap/
 
 ## AI Chat - Full Knowledge Base Search
 
-The AI chat searches **ALL** 3,300+ articles and 298 podcast transcripts to find the most relevant content for your question.
+The AI chat searches **ALL** 3,300+ articles, 298 podcast transcripts, and your uploaded files to find the most relevant content for your question.
 
 ### How It Works
-1. Your question is analyzed for keywords and phrases
-2. Every article and podcast is scored for relevance
-3. Top 50 most relevant sources are selected
-4. **Tiered snippets** are extracted to optimize token usage:
+1. Your question is analyzed for keywords, phrases, and intent (who/what/how questions)
+2. Every article, podcast, and your uploaded files are scored for relevance
+3. **Improved relevance filtering**:
+   - Minimum score thresholds filter out low-relevance results
+   - Normalized scoring for fair comparison across content lengths
+   - Query intent analysis boosts relevant content types
+   - Quoted terms and proper nouns get priority matching
+4. Top 50 most relevant sources are selected
+5. **Tiered snippets** are extracted to optimize token usage:
    - **Tier 1** (Top 10): 800-char snippets for highest relevance
    - **Tier 2** (Next 15): 400-char snippets for good coverage
    - **Tier 3** (Last 25): 150-char snippets for breadth
-5. AI generates a response with rich markdown formatting
-6. Sources are cited for verification
+6. AI generates a response with rich markdown formatting
+7. Sources are cited with relevance indicators
 
 ### Chat Features
+- **Collapsible Sources** - Expand/collapse source panel, shows relevance (high/medium/low)
 - **Syntax Highlighting** - Code blocks with language detection and GitHub Dark theme
 - **Copy Button** - One-click copy for code snippets
 - **Tables** - Formatted comparison tables
 - **Blockquotes** - Styled quotes from sources
 - **Lists** - Bullet and numbered lists with proper spacing
+- **Your Files** - Uploaded documents are automatically included in search
 
 ### Usage
 
@@ -279,6 +325,66 @@ The AI chat searches **ALL** 3,300+ articles and 298 podcast transcripts to find
 - Gemini 1.5 Pro
 - Gemini 1.5 Flash
 - Gemini 2.0 Flash (Experimental)
+
+---
+
+## My Files - Chat with Your Documents
+
+Upload your own documents and they'll be included in AI chat searches automatically.
+
+### Supported Formats
+- **TXT** - Plain text files
+- **PDF** - PDF documents (text extracted automatically)
+- **MD** - Markdown files
+- **DOCX** - Microsoft Word documents
+
+### How It Works
+1. Go to **My Files** (via navigation or user menu)
+2. Upload documents (max 10MB each, up to 5 at once)
+3. Text content is extracted and stored securely
+4. When you chat with AI, your files are searched alongside articles and podcasts
+5. Your files get a relevance boost to prioritize personal content
+
+### Privacy
+- Files are stored per-user in isolated directories
+- Only you can see and search your uploaded files
+- Delete files anytime from the My Files page
+
+---
+
+## Personal Features
+
+### Bookmarks
+Save articles and podcasts to read later:
+- Add notes to bookmarks
+- Export to **JSON**, **Markdown**, or **Notion CSV**
+- Filter and search your bookmarks
+
+### Read History
+Track your reading activity:
+- Automatic tracking when you view content
+- Read count and total time tracking
+- Export your reading history
+
+### My Analytics
+View your personal stats:
+- Articles and podcasts read
+- Search and chat activity
+- Top categories you read
+- Recent search history
+- Admin users see system-wide analytics
+
+### AI Summaries
+Generate concise summaries of any article or podcast:
+- 3-5 bullet point summaries
+- Uses your configured AI provider
+- Summaries are cached to avoid regeneration
+
+### Email Digest
+Subscribe to periodic content updates:
+- Daily or weekly frequency
+- Filter by preferred categories
+- Preview digest before subscribing
 
 ---
 

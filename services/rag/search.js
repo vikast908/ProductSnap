@@ -134,11 +134,59 @@ function getRelevantSnippet(content, keywords, snippetLength = 500) {
 }
 
 /**
+ * Calculate a normalized relevance score (0-100)
+ * Takes into account keyword density and match quality
+ */
+function normalizeScore(score, textLength, keywordCount) {
+  if (!score || !textLength || !keywordCount) return 0;
+  // Factor in text length and keyword count for fair comparison
+  const density = score / (textLength / 1000); // Score per 1000 chars
+  const normalized = Math.min(100, Math.round(density * (keywordCount / 3) * 10));
+  return normalized;
+}
+
+/**
+ * Check if query is asking about a specific topic/person
+ * Returns weighted keywords for better matching
+ */
+function analyzeQueryIntent(query) {
+  const queryLower = query.toLowerCase();
+
+  // Detect question types
+  const isWhoQuestion = /\bwho\b/i.test(query);
+  const isHowQuestion = /\bhow\b/i.test(query);
+  const isWhatQuestion = /\bwhat\b/i.test(query);
+  const isExplainQuestion = /\b(explain|describe|tell me about)\b/i.test(query);
+
+  // Extract quoted terms (highest priority)
+  const quotedTerms = query.match(/"([^"]+)"/g)?.map(t => t.replace(/"/g, '')) || [];
+
+  // Extract proper nouns / names (capitalized words not at sentence start)
+  const words = query.split(/\s+/);
+  const properNouns = words.slice(1).filter(w => /^[A-Z][a-z]/.test(w));
+
+  return {
+    isWhoQuestion,
+    isHowQuestion,
+    isWhatQuestion,
+    isExplainQuestion,
+    quotedTerms,
+    properNouns,
+    hasSpecificTarget: quotedTerms.length > 0 || properNouns.length > 0
+  };
+}
+
+/**
  * Search articles and podcasts for relevant content
  * Uses tiered snippet strategy to optimize token usage:
  * - Tier 1 (top 10): Full 800-char snippets for best relevance
  * - Tier 2 (next 15): Medium 400-char snippets for good coverage
- * - Tier 3 (remaining 25): Brief 150-char snippets for breadth
+ * - Tier 3 (remaining): Brief 150-char snippets for breadth
+ *
+ * Improved relevance filtering:
+ * - Minimum score threshold to exclude low-relevance results
+ * - Normalized scoring for fair comparison across different content lengths
+ * - Query intent analysis for better matching
  *
  * @param {string} query - User query
  * @param {Object} db - LowDB instance
@@ -148,32 +196,63 @@ function getRelevantSnippet(content, keywords, snippetLength = 500) {
  */
 function searchContent(query, db, cache, options = {}) {
   const {
-    maxResults = 50, // Search across ALL content, return top 50 most relevant
+    maxResults = 50,
     includeArticles = true,
     includePodcasts = true,
-    // Tiered snippet lengths for token optimization
-    tier1Count = 10,  // Top results get full context
+    userFiles = [],        // User's uploaded files for personalized search
+    tier1Count = 10,
     tier1Length = 800,
-    tier2Count = 15,  // Medium relevance get moderate context
+    tier2Count = 15,
     tier2Length = 400,
-    tier3Length = 150  // Lower relevance get brief context
+    tier3Length = 150,
+    minRelevanceScore = 3, // Minimum score threshold to include
+    minNormalizedScore = 5  // Minimum normalized score (0-100)
   } = options;
 
   const keywords = extractKeywords(query);
+  const queryIntent = analyzeQueryIntent(query);
   const results = [];
+
+  // Boost keywords based on query intent
+  const boostedKeywords = [...keywords];
+  queryIntent.quotedTerms.forEach(term => {
+    boostedKeywords.unshift(term); // Add quoted terms with highest priority
+  });
+  queryIntent.properNouns.forEach(noun => {
+    boostedKeywords.unshift(noun.toLowerCase());
+  });
 
   // Search articles
   if (includeArticles) {
     const articles = db.get('articles').value() || [];
 
     for (const article of articles) {
-      const titleScore = calculateRelevance(article.title, keywords) * 3; // Weight title higher
-      const descScore = calculateRelevance(article.description, keywords) * 2;
-      const contentScore = calculateRelevance(article.content, keywords);
+      const titleScore = calculateRelevance(article.title, boostedKeywords) * 4; // Title is very important
+      const descScore = calculateRelevance(article.description, boostedKeywords) * 2;
+      const contentScore = calculateRelevance(article.content, boostedKeywords);
 
-      const totalScore = titleScore + descScore + contentScore;
+      // Extra boost for quoted term matches in title
+      let exactMatchBonus = 0;
+      if (queryIntent.quotedTerms.some(term =>
+        article.title?.toLowerCase().includes(term.toLowerCase())
+      )) {
+        exactMatchBonus = 20;
+      }
 
-      if (totalScore > 0) {
+      // Boost for proper noun (name) matches
+      if (queryIntent.properNouns.some(noun =>
+        article.title?.toLowerCase().includes(noun.toLowerCase()) ||
+        article.content?.toLowerCase().includes(noun.toLowerCase())
+      )) {
+        exactMatchBonus += 10;
+      }
+
+      const totalScore = titleScore + descScore + contentScore + exactMatchBonus;
+      const textLength = (article.title?.length || 0) + (article.description?.length || 0) + (article.content?.length || 0);
+      const normalizedScore = normalizeScore(totalScore, textLength, keywords.length);
+
+      // Only include if meets both thresholds
+      if (totalScore >= minRelevanceScore && normalizedScore >= minNormalizedScore) {
         results.push({
           type: 'article',
           id: article.id,
@@ -182,7 +261,9 @@ function searchContent(query, db, cache, options = {}) {
           url: article.link,
           pubDate: article.pubDate,
           score: totalScore,
-          content: article.content || article.description || '' // Store full content for tiered extraction
+          normalizedScore,
+          relevance: normalizedScore >= 50 ? 'high' : normalizedScore >= 20 ? 'medium' : 'low',
+          content: article.content || article.description || ''
         });
       }
     }
@@ -191,13 +272,27 @@ function searchContent(query, db, cache, options = {}) {
   // Search podcast transcripts
   if (includePodcasts && cache.transcripts) {
     for (const transcript of cache.transcripts) {
-      const titleScore = calculateRelevance(transcript.title, keywords) * 3;
-      const guestScore = calculateRelevance(transcript.guest, keywords) * 4; // Weight guest name highly
-      const contentScore = calculateRelevance(transcript.content, keywords);
+      const titleScore = calculateRelevance(transcript.title, boostedKeywords) * 3;
+      const guestScore = calculateRelevance(transcript.guest, boostedKeywords) * 5; // Guest name very important
+      const contentScore = calculateRelevance(transcript.content, boostedKeywords);
 
-      const totalScore = titleScore + guestScore + contentScore;
+      // Extra boost for guest name matches (especially for "who" questions)
+      let exactMatchBonus = 0;
+      if (queryIntent.isWhoQuestion || queryIntent.properNouns.length > 0) {
+        if (queryIntent.properNouns.some(noun =>
+          transcript.guest?.toLowerCase().includes(noun.toLowerCase())
+        ) || queryIntent.quotedTerms.some(term =>
+          transcript.guest?.toLowerCase().includes(term.toLowerCase())
+        )) {
+          exactMatchBonus = 30;
+        }
+      }
 
-      if (totalScore > 0) {
+      const totalScore = titleScore + guestScore + contentScore + exactMatchBonus;
+      const textLength = (transcript.title?.length || 0) + (transcript.guest?.length || 0) + (transcript.content?.length || 0);
+      const normalizedScore = normalizeScore(totalScore, textLength, keywords.length);
+
+      if (totalScore >= minRelevanceScore && normalizedScore >= minNormalizedScore) {
         results.push({
           type: 'podcast',
           id: transcript.id,
@@ -205,7 +300,38 @@ function searchContent(query, db, cache, options = {}) {
           guest: transcript.guest,
           source: "Lenny's Podcast",
           score: totalScore,
-          content: transcript.content || '' // Store full content for tiered extraction
+          normalizedScore,
+          relevance: normalizedScore >= 50 ? 'high' : normalizedScore >= 20 ? 'medium' : 'low',
+          content: transcript.content || ''
+        });
+      }
+    }
+  }
+
+  // Search user's uploaded files (prioritize with higher boost since they're personal)
+  if (userFiles && userFiles.length > 0) {
+    for (const file of userFiles) {
+      const titleScore = calculateRelevance(file.originalName, boostedKeywords) * 5; // Filename important
+      const contentScore = calculateRelevance(file.content, boostedKeywords);
+
+      // Extra boost for user files to prioritize personal content
+      const personalBoost = 15;
+
+      const totalScore = titleScore + contentScore + personalBoost;
+      const textLength = (file.originalName?.length || 0) + (file.content?.length || 0);
+      const normalizedScore = normalizeScore(totalScore, textLength, keywords.length);
+
+      if (totalScore >= minRelevanceScore) {
+        results.push({
+          type: 'userFile',
+          id: file.id,
+          title: file.originalName,
+          source: 'My Files',
+          score: totalScore,
+          normalizedScore,
+          relevance: normalizedScore >= 50 ? 'high' : normalizedScore >= 20 ? 'medium' : 'low',
+          content: file.content || '',
+          uploadedAt: file.uploadedAt
         });
       }
     }
@@ -214,8 +340,24 @@ function searchContent(query, db, cache, options = {}) {
   // Sort by relevance score
   results.sort((a, b) => b.score - a.score);
 
+  // Determine how many results to actually use based on quality
+  // If we have lots of high-relevance results, use fewer total
+  // If results are mostly low-relevance, be more selective
+  const highRelevanceCount = results.filter(r => r.relevance === 'high').length;
+  const mediumRelevanceCount = results.filter(r => r.relevance === 'medium').length;
+
+  // Dynamic result count based on quality
+  let effectiveMaxResults = maxResults;
+  if (highRelevanceCount >= 15) {
+    // Lots of high-quality matches, focus on those
+    effectiveMaxResults = Math.min(30, maxResults);
+  } else if (highRelevanceCount + mediumRelevanceCount < 10) {
+    // Few good matches, be more selective
+    effectiveMaxResults = Math.min(15, maxResults);
+  }
+
   // Take top results and apply tiered snippets
-  const topResults = results.slice(0, maxResults).map((result, index) => {
+  const topResults = results.slice(0, effectiveMaxResults).map((result, index) => {
     let snippetLength;
     let tier;
 
@@ -232,11 +374,15 @@ function searchContent(query, db, cache, options = {}) {
 
     return {
       ...result,
-      snippet: getRelevantSnippet(result.content, keywords, snippetLength),
+      snippet: getRelevantSnippet(result.content, boostedKeywords, snippetLength),
       tier,
-      content: undefined // Remove full content from result to save memory
+      content: undefined
     };
   });
+
+  // Only include high and medium relevance sources for user display
+  // Low relevance sources are used for AI context but not shown prominently
+  const displayResults = topResults.filter(r => r.relevance !== 'low' || r.tier === 1);
 
   // Format context for AI with tiered approach
   const contextParts = topResults.map((result, index) => {
@@ -245,6 +391,9 @@ function searchContent(query, db, cache, options = {}) {
     if (result.type === 'article') {
       return `[Source ${index + 1}: Article - "${result.title}" from ${result.source}${tierLabel}]
 ${result.snippet}`;
+    } else if (result.type === 'userFile') {
+      return `[Source ${index + 1}: User's File - "${result.title}"${tierLabel}]
+${result.snippet}`;
     } else {
       return `[Source ${index + 1}: Lenny's Podcast with ${result.guest}${tierLabel}]
 ${result.snippet}`;
@@ -252,19 +401,27 @@ ${result.snippet}`;
   });
 
   // Calculate approximate token savings
-  const fullTokens = maxResults * tier1Length / 4; // Rough estimate: 4 chars per token
-  const tieredTokens = (tier1Count * tier1Length + tier2Count * tier2Length + (maxResults - tier1Count - tier2Count) * tier3Length) / 4;
+  const fullTokens = effectiveMaxResults * tier1Length / 4;
+  const tieredTokens = (Math.min(tier1Count, effectiveMaxResults) * tier1Length +
+    Math.min(tier2Count, Math.max(0, effectiveMaxResults - tier1Count)) * tier2Length +
+    Math.max(0, effectiveMaxResults - tier1Count - tier2Count) * tier3Length) / 4;
   const tokenSavings = Math.round((1 - tieredTokens / fullTokens) * 100);
 
   return {
-    results: topResults,
+    results: displayResults, // Only show relevant sources to user
+    allResults: topResults,  // All results for AI context
     context: contextParts.join('\n\n'),
-    keywords,
+    keywords: boostedKeywords.slice(0, 10), // Top keywords used
     totalFound: results.length,
+    relevanceBreakdown: {
+      high: highRelevanceCount,
+      medium: mediumRelevanceCount,
+      low: results.length - highRelevanceCount - mediumRelevanceCount
+    },
     tokenOptimization: {
-      tier1Sources: tier1Count,
-      tier2Sources: tier2Count,
-      tier3Sources: maxResults - tier1Count - tier2Count,
+      tier1Sources: Math.min(tier1Count, topResults.length),
+      tier2Sources: Math.min(tier2Count, Math.max(0, topResults.length - tier1Count)),
+      tier3Sources: Math.max(0, topResults.length - tier1Count - tier2Count),
       estimatedTokenSavings: `${tokenSavings}%`
     }
   };
@@ -282,7 +439,10 @@ function formatSources(results) {
     title: result.title,
     source: result.source,
     url: result.url || null,
-    guest: result.guest || null
+    guest: result.guest || null,
+    relevance: result.relevance || 'medium',
+    normalizedScore: result.normalizedScore || 0,
+    tier: result.tier || 3
   }));
 }
 
@@ -291,5 +451,7 @@ module.exports = {
   extractKeywords,
   calculateRelevance,
   getRelevantSnippet,
-  formatSources
+  formatSources,
+  normalizeScore,
+  analyzeQueryIntent
 };
