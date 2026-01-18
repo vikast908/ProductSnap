@@ -1,23 +1,37 @@
 {
-  "name": "demoread",
-  "version": "2.0.0",
-  "description": "Free Content Aggregator - The world's biggest database of free articles",
+  "name": "productsnap",
+  "version": "3.0.0",
+  "description": "ProductSnap - AI-Powered Product Management Knowledge Hub with 167+ RSS feeds, Lenny's Podcast transcripts, and RAG-based AI chat",
   "main": "aggregator-server.js",
   "scripts": {
-    "start": "node server.js",
-    "aggregator": "node aggregator-server.js",
-    "setup": "node database-setup.js"
+    "start": "node aggregator-server.js",
+    "dev": "node aggregator-server.js",
+    "build:client": "cd client && npm run build",
+    "setup": "npm install && cd client && npm install && npm run build"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
+    "@anthropic-ai/sdk": "^0.12.0",
+    "@google/generative-ai": "^0.2.1",
+    "@mozilla/readability": "^0.6.0",
     "axios": "^1.6.0",
-    "@mozilla/readability": "^0.5.0",
+    "cheerio": "^1.0.0-rc.12",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "crypto-js": "^4.2.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "express-session": "^1.18.0",
+    "helmet": "^7.1.0",
     "jsdom": "^23.0.0",
-    "puppeteer": "^21.0.0",
-    "rss-parser": "^3.13.0",
+    "jsonwebtoken": "^9.0.2",
     "lowdb": "^1.0.0",
     "node-cron": "^3.0.3",
-    "cheerio": "^1.0.0-rc.12"
+    "openai": "^4.24.1",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
+    "puppeteer": "^24.35.0",
+    "rss-parser": "^3.13.0",
+    "uuid": "^9.0.1"
   }
 }

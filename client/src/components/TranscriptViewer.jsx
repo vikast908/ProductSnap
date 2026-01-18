@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { X, Search, Clock, FileText, Copy, Check } from 'lucide-react'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { X, Search, Clock, FileText, Copy, Check, Mic } from 'lucide-react'
 
 export function TranscriptViewer({ podcastId, onClose }) {
   const [transcript, setTranscript] = useState(null)
@@ -23,9 +24,7 @@ export function TranscriptViewer({ podcastId, onClose }) {
       }
     }
 
-    if (podcastId) {
-      fetchTranscript()
-    }
+    if (podcastId) fetchTranscript()
   }, [podcastId])
 
   // Parse transcript content into structured segments
@@ -39,17 +38,11 @@ export function TranscriptViewer({ podcastId, onClose }) {
     let currentTime = ''
 
     for (const line of lines) {
-      // Match pattern: "Speaker Name (00:00:00):"
       const speakerMatch = line.match(/^([^(]+)\s*\((\d{1,2}:\d{2}:\d{2})\):?\s*(.*)/)
 
       if (speakerMatch) {
-        // Save previous segment
         if (currentSpeaker && currentText.trim()) {
-          parsed.push({
-            speaker: currentSpeaker,
-            time: currentTime,
-            text: currentText.trim()
-          })
+          parsed.push({ speaker: currentSpeaker, time: currentTime, text: currentText.trim() })
         }
         currentSpeaker = speakerMatch[1].trim()
         currentTime = speakerMatch[2]
@@ -59,13 +52,8 @@ export function TranscriptViewer({ podcastId, onClose }) {
       }
     }
 
-    // Add last segment
     if (currentSpeaker && currentText.trim()) {
-      parsed.push({
-        speaker: currentSpeaker,
-        time: currentTime,
-        text: currentText.trim()
-      })
+      parsed.push({ speaker: currentSpeaker, time: currentTime, text: currentText.trim() })
     }
 
     return parsed
@@ -74,7 +62,6 @@ export function TranscriptViewer({ podcastId, onClose }) {
   // Filter segments by search
   const filteredSegments = useMemo(() => {
     if (!searchQuery) return segments
-
     const query = searchQuery.toLowerCase()
     return segments.filter(s =>
       s.text.toLowerCase().includes(query) ||
@@ -82,14 +69,13 @@ export function TranscriptViewer({ podcastId, onClose }) {
     )
   }, [segments, searchQuery])
 
-  // Highlight search term in text
+  // Highlight search term
   const highlightText = useCallback((text, query) => {
     if (!query) return text
-
     const parts = text.split(new RegExp(`(${query})`, 'gi'))
     return parts.map((part, i) =>
       part.toLowerCase() === query.toLowerCase()
-        ? <mark key={i} className="bg-yellow-300 dark:bg-yellow-600 px-0.5 rounded">{part}</mark>
+        ? <mark key={i} className="bg-primary/20 text-primary px-0.5 rounded">{part}</mark>
         : part
     )
   }, [])
@@ -104,10 +90,19 @@ export function TranscriptViewer({ podcastId, onClose }) {
     }
   }
 
+  // Keyboard handler
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -122,88 +117,97 @@ export function TranscriptViewer({ podcastId, onClose }) {
   }
 
   return (
-    <div className="flex flex-col h-[80vh]">
+    <div className="flex flex-col h-[85vh]">
       {/* Header */}
-      <div className="flex-shrink-0 flex items-start justify-between p-4 border-b bg-gradient-to-r from-primary/10 to-secondary/10">
-        <div className="flex-1 min-w-0">
-          <h2 className="text-xl font-bold truncate">{transcript.guest}</h2>
-          <p className="text-sm text-muted-foreground">Lenny's Podcast</p>
-          <div className="flex items-center gap-3 mt-2 flex-wrap">
-            <Badge variant="outline" className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {transcript.estimatedDuration}
-            </Badge>
-            <Badge variant="outline" className="flex items-center gap-1">
-              <FileText className="h-3 w-3" />
-              {transcript.wordCount?.toLocaleString()} words
-            </Badge>
+      <header className="flex items-start justify-between p-6 border-b border-border/50 flex-shrink-0">
+        <div className="flex items-start gap-4 min-w-0">
+          <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+            <Mic className="h-6 w-6 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-xl font-semibold tracking-tight truncate">{transcript.guest}</h2>
+            <p className="text-sm text-muted-foreground">Lenny's Podcast</p>
+            <div className="flex items-center gap-2 mt-2">
+              <Badge variant="secondary" className="gap-1">
+                <Clock className="h-3 w-3" />
+                {transcript.estimatedDuration}
+              </Badge>
+              <Badge variant="secondary" className="gap-1">
+                <FileText className="h-3 w-3" />
+                {transcript.wordCount?.toLocaleString()} words
+              </Badge>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-2 ml-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={copyTranscript}
-            title="Copy transcript"
-          >
+        <div className="flex items-center gap-1 ml-4">
+          <Button variant="ghost" size="icon" onClick={copyTranscript} className="h-9 w-9">
             {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
           </Button>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-4 w-4" />
+          <Button variant="ghost" size="icon" onClick={onClose} className="h-9 w-9">
+            <X className="h-5 w-5" />
           </Button>
         </div>
-      </div>
+      </header>
 
       {/* Search */}
-      <div className="flex-shrink-0 p-4 border-b bg-card">
+      <div className="p-4 border-b border-border/50 flex-shrink-0">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search in transcript..."
+            placeholder="Search transcript..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 bg-accent/50 border-0 h-10"
           />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2"
+            >
+              <X className="h-4 w-4 text-muted-foreground" />
+            </button>
+          )}
         </div>
         {searchQuery && (
           <p className="text-xs text-muted-foreground mt-2">
-            Found {filteredSegments.length} segment{filteredSegments.length !== 1 ? 's' : ''} matching "{searchQuery}"
+            {filteredSegments.length} segment{filteredSegments.length !== 1 ? 's' : ''} found
           </p>
         )}
       </div>
 
-      {/* Transcript Content - Scrollable */}
-      <div className="flex-1 overflow-y-auto min-h-0">
-        <div className="p-4 space-y-4">
+      {/* Content */}
+      <ScrollArea className="flex-1">
+        <div className="p-6 space-y-6">
           {filteredSegments.map((segment, index) => (
             <div key={index} className="group">
-              <div className="flex items-center gap-2 mb-1">
-                <span className={`font-semibold ${
-                  segment.speaker === 'Lenny' || segment.speaker.includes('Lenny') ? 'text-primary' : 'text-secondary'
+              <div className="flex items-center gap-2 mb-2">
+                <span className={`font-medium ${
+                  segment.speaker.includes('Lenny') ? 'text-primary' : 'text-foreground'
                 }`}>
                   {segment.speaker}
                 </span>
-                <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">
+                <span className="text-xs text-muted-foreground font-mono bg-accent px-2 py-0.5 rounded">
                   {segment.time}
                 </span>
               </div>
-              <p className="text-sm leading-relaxed pl-3 border-l-2 border-muted group-hover:border-primary/50 transition-colors">
+              <p className="text-sm leading-relaxed text-muted-foreground pl-4 border-l-2 border-border group-hover:border-primary/50 transition-colors">
                 {highlightText(segment.text, searchQuery)}
               </p>
             </div>
           ))}
           {filteredSegments.length === 0 && searchQuery && (
-            <div className="text-center py-8 text-muted-foreground">
-              No segments found matching "{searchQuery}"
+            <div className="text-center py-12 text-muted-foreground">
+              No segments matching "{searchQuery}"
             </div>
           )}
         </div>
-      </div>
+      </ScrollArea>
 
-      {/* Footer with segment count */}
-      <div className="flex-shrink-0 p-3 border-t bg-muted/30 text-center text-xs text-muted-foreground">
-        {filteredSegments.length} segments • Scroll to read full transcript
-      </div>
+      {/* Footer */}
+      <footer className="flex items-center justify-between px-6 h-12 border-t border-border/50 text-xs text-muted-foreground flex-shrink-0">
+        <span>{segments.length} segments total</span>
+        <span>Esc to close</span>
+      </footer>
     </div>
   )
 }

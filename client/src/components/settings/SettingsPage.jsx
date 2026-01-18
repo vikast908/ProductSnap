@@ -324,16 +324,11 @@ export function SettingsPage() {
                         <SelectItem value="system">System</SelectItem>
                         <SelectItem value="light">Light</SelectItem>
                         <SelectItem value="dark">Dark</SelectItem>
-                        <SelectItem value="newspaper">Newspaper</SelectItem>
-                        <SelectItem value="kindle">Kindle</SelectItem>
-                        <SelectItem value="got">Game of Thrones</SelectItem>
-                        <SelectItem value="lotr">Lord of the Rings</SelectItem>
-                        <SelectItem value="hp">Harry Potter</SelectItem>
-                        <SelectItem value="amazon">Amazon Forest</SelectItem>
-                        <SelectItem value="sahara">Sahara Desert</SelectItem>
-                        <SelectItem value="avatar">Avatar (Pandora)</SelectItem>
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Choose between light and dark mode, or use your system preference
+                    </p>
                   </div>
 
                   <Button onClick={handleSavePreferences} disabled={saving}>

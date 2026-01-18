@@ -9,34 +9,14 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  // Get token from localStorage
-  const getToken = useCallback(() => {
-    return localStorage.getItem('auth_token')
-  }, [])
+  // SECURITY: Token is now stored in httpOnly cookie (not accessible from JS)
+  // All requests use credentials: 'include' to send cookies automatically
 
-  // Save token to localStorage
-  const saveToken = useCallback((token) => {
-    if (token) {
-      localStorage.setItem('auth_token', token)
-    } else {
-      localStorage.removeItem('auth_token')
-    }
-  }, [])
-
-  // Fetch current user
+  // Fetch current user (uses httpOnly cookie automatically)
   const fetchUser = useCallback(async () => {
-    const token = getToken()
-    if (!token) {
-      setUser(null)
-      setLoading(false)
-      return null
-    }
-
     try {
       const response = await fetch(`${API_BASE}/api/auth/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        credentials: 'include' // Send httpOnly cookies
       })
 
       if (response.ok) {
@@ -44,8 +24,7 @@ export function AuthProvider({ children }) {
         setUser(userData)
         return userData
       } else if (response.status === 401) {
-        // Token expired or invalid
-        saveToken(null)
+        // Not authenticated or token expired
         setUser(null)
         return null
       } else {
@@ -59,57 +38,54 @@ export function AuthProvider({ children }) {
     } finally {
       setLoading(false)
     }
-  }, [getToken, saveToken])
+  }, [])
 
-  // Check URL for token (after OAuth redirect)
+  // Check URL for auth success (after OAuth redirect)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    const token = params.get('token')
+    const authSuccess = params.get('auth')
 
-    if (token) {
-      saveToken(token)
-      // Remove token from URL
+    if (authSuccess === 'success') {
+      // Remove auth param from URL
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
+
+    // Also handle legacy token param for backwards compatibility during migration
+    const legacyToken = params.get('token')
+    if (legacyToken) {
+      // Clear legacy token from URL - the new httpOnly cookie system is now in use
       window.history.replaceState({}, document.title, window.location.pathname)
     }
 
     fetchUser()
-  }, [fetchUser, saveToken])
+  }, [fetchUser])
 
   // Login with Google
   const loginWithGoogle = useCallback(() => {
     window.location.href = `${API_BASE}/api/auth/google`
   }, [])
 
-  // Logout
+  // Logout (clears httpOnly cookie on server)
   const logout = useCallback(async () => {
-    const token = getToken()
-    if (token) {
-      try {
-        await fetch(`${API_BASE}/api/auth/logout`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
-      } catch (err) {
-        console.error('Logout error:', err)
-      }
+    try {
+      await fetch(`${API_BASE}/api/auth/logout`, {
+        method: 'POST',
+        credentials: 'include' // Send httpOnly cookies
+      })
+    } catch (err) {
+      console.error('Logout error:', err)
     }
 
-    saveToken(null)
     setUser(null)
-  }, [getToken, saveToken])
+  }, [])
 
   // Update user settings
   const updateSettings = useCallback(async (preferences) => {
-    const token = getToken()
-    if (!token) return { success: false, error: 'Not authenticated' }
-
     try {
       const response = await fetch(`${API_BASE}/api/settings`, {
         method: 'PUT',
+        credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ preferences })
@@ -126,6 +102,9 @@ export function AuthProvider({ children }) {
           }
         }))
         return { success: true, data }
+      } else if (response.status === 401) {
+        setUser(null)
+        return { success: false, error: 'Session expired' }
       } else {
         const error = await response.json()
         return { success: false, error: error.error }
@@ -133,18 +112,15 @@ export function AuthProvider({ children }) {
     } catch (err) {
       return { success: false, error: err.message }
     }
-  }, [getToken])
+  }, [])
 
   // Save API keys
   const saveApiKeys = useCallback(async (apiKeys) => {
-    const token = getToken()
-    if (!token) return { success: false, error: 'Not authenticated' }
-
     try {
       const response = await fetch(`${API_BASE}/api/settings/api-keys`, {
         method: 'PUT',
+        credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ apiKeys })
@@ -162,6 +138,9 @@ export function AuthProvider({ children }) {
           }
         }))
         return { success: true, data }
+      } else if (response.status === 401) {
+        setUser(null)
+        return { success: false, error: 'Session expired' }
       } else {
         const error = await response.json()
         return { success: false, error: error.error }
@@ -169,34 +148,28 @@ export function AuthProvider({ children }) {
     } catch (err) {
       return { success: false, error: err.message }
     }
-  }, [getToken])
+  }, [])
 
   // Check if user is admin
   const isAdmin = user?.role === 'admin'
 
-  // Make authenticated request helper
+  // Make authenticated request helper (uses httpOnly cookie)
   const authFetch = useCallback(async (url, options = {}) => {
-    const token = getToken()
-    if (!token) {
-      throw new Error('Not authenticated')
-    }
-
     const response = await fetch(url, {
       ...options,
+      credentials: 'include', // Send httpOnly cookies
       headers: {
-        ...options.headers,
-        'Authorization': `Bearer ${token}`
+        ...options.headers
       }
     })
 
     if (response.status === 401) {
-      saveToken(null)
       setUser(null)
       throw new Error('Session expired')
     }
 
     return response
-  }, [getToken, saveToken])
+  }, [])
 
   const value = {
     user,
@@ -209,8 +182,7 @@ export function AuthProvider({ children }) {
     fetchUser,
     updateSettings,
     saveApiKeys,
-    authFetch,
-    getToken
+    authFetch
   }
 
   return (

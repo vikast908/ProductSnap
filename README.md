@@ -2,7 +2,7 @@
 
 **AI-Powered Product Management Knowledge Hub**
 
-ProductSnap is a comprehensive content aggregator designed for product managers, providing curated articles from 167+ RSS feeds, 298 Lenny's Podcast transcripts, and an AI-powered chat assistant for instant insights.
+ProductSnap is a comprehensive content aggregator designed for product managers, providing curated articles from 167+ RSS feeds, 298 Lenny's Podcast transcripts, and an AI-powered chat assistant with full RAG search across all content.
 
 ![Version](https://img.shields.io/badge/version-3.0.0-blue)
 ![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-green)
@@ -14,28 +14,32 @@ ProductSnap is a comprehensive content aggregator designed for product managers,
 
 ### Content Aggregation
 - **167+ RSS Feeds** - Curated from top PM publications, thought leaders, and tech companies
-- **298 Lenny's Podcast Transcripts** - Full searchable transcripts from the #1 PM podcast
-- **Product Launch Feeds** - BetaList, TechCrunch, VentureBeat, Product Hunt, and 40+ more
+- **298 Lenny's Podcast Transcripts** - Full searchable transcripts (4.5M+ words) from the #1 PM podcast
+- **3,300+ Articles** - Continuously growing knowledge base
 - **Auto-refresh** - Feeds update automatically every 2 hours
 
 ### AI-Powered Chat (RAG)
+- **Full Knowledge Base Search** - AI searches ALL articles and podcasts, returns top 50 most relevant sources
 - **Multi-provider Support** - OpenAI (GPT-4o, o1), Anthropic (Claude), Google (Gemini)
-- **RAG Search** - AI responses backed by relevant articles and podcast transcripts
+- **Smart Context** - 800-character snippets from each source for comprehensive answers
 - **Source Citations** - Every AI response includes clickable source references
 - **Model Selection** - Choose your preferred model for each AI provider
 
 ### Authentication & Security
 - **Google OAuth** - Secure login with Google accounts
 - **Role-based Access** - Admin and User roles with different permissions
-- **Encrypted API Keys** - AES-256 encryption for stored API keys
-- **Rate Limiting** - Protection against abuse on auth and chat endpoints
+- **AES-256-GCM Encryption** - Authenticated encryption for stored API keys
+- **httpOnly Cookies** - XSS-safe token storage
+- **Rate Limiting** - Protection against abuse on all endpoints
+- **SSRF Protection** - URL validation on content extraction
 
 ### User Interface
-- **11 Beautiful Themes** - Dark, Light, Newspaper, Kindle, Game of Thrones, LOTR, Harry Potter, Amazon, Sahara, Avatar
-- **Advanced Filtering** - Filter by category, source, time period
-- **Article Preview** - Hover to preview without leaving the page
+- **Apple-Inspired Design** - Clean, minimal aesthetic with smooth animations
+- **Light & Dark Themes** - System-aware theme switching
+- **Glass Morphism** - Frosted glass header with backdrop blur
+- **In-App Reader** - Read articles without leaving the app
 - **Transcript Viewer** - Full-text podcast transcripts with search
-- **Responsive Design** - Works on desktop, tablet, and mobile
+- **Responsive Design** - Works beautifully on desktop, tablet, and mobile
 
 ---
 
@@ -72,10 +76,10 @@ GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
 
-# JWT Configuration (32+ characters)
+# JWT Configuration (32+ characters required)
 JWT_SECRET=your_32_char_secret_key_here
 
-# Encryption Key for API Keys (exactly 32 characters)
+# Encryption Key for API Keys (32+ characters required)
 ENCRYPTION_KEY=your_32_char_encryption_key_here
 
 # Admin Configuration
@@ -85,8 +89,11 @@ ADMIN_EMAIL=your_admin_email@gmail.com
 PORT=3000
 NODE_ENV=development
 
-# Session Secret
+# Session Secret (32+ characters required)
 SESSION_SECRET=your_session_secret_key_here
+
+# Production only
+FRONTEND_URL=https://yourdomain.com
 ```
 
 2. **Set up Google OAuth:**
@@ -119,8 +126,8 @@ Visit **http://localhost:3000** in your browser.
 - Express.js - Web framework
 - LowDB - JSON file database
 - Passport.js - Google OAuth authentication
-- JSON Web Tokens - Session management
-- crypto-js - AES-256 encryption
+- JSON Web Tokens - Session management (httpOnly cookies)
+- Node.js crypto - AES-256-GCM encryption
 - rss-parser - RSS feed parsing
 - OpenAI/Anthropic/Google SDKs - AI providers
 
@@ -138,38 +145,38 @@ Visit **http://localhost:3000** in your browser.
 productsnap/
 ├── aggregator-server.js    # Main Express server
 ├── package.json
-├── .env                    # Environment variables
+├── .env                    # Environment variables (not in git)
 ├── content-aggregator.json # Database file
 │
 ├── middleware/
-│   ├── auth.js            # JWT authentication
+│   ├── auth.js            # JWT authentication (httpOnly cookie)
 │   └── rbac.js            # Role-based access control
 │
 ├── routes/
 │   ├── auth.js            # Google OAuth routes
 │   ├── settings.js        # User settings API
-│   ├── chat.js            # AI chat endpoint
+│   ├── chat.js            # AI chat endpoint with RAG
 │   └── admin.js           # Admin management
 │
 ├── services/
-│   ├── encryption.js      # API key encryption
+│   ├── encryption.js      # AES-256-GCM encryption
 │   ├── ai/
 │   │   ├── index.js       # AI service factory
 │   │   ├── openai.js      # OpenAI integration
 │   │   ├── anthropic.js   # Anthropic integration
 │   │   └── google.js      # Google AI integration
 │   └── rag/
-│       └── search.js      # RAG content search
+│       └── search.js      # RAG content search (50 sources)
 │
 ├── client/                 # React frontend
 │   ├── src/
 │   │   ├── App.jsx        # Main app component
 │   │   ├── main.jsx       # Entry point
-│   │   ├── index.css      # Global styles & themes
+│   │   ├── index.css      # Apple-inspired themes
 │   │   ├── context/
 │   │   │   └── AuthContext.jsx
 │   │   └── components/
-│   │       ├── ui/        # Radix UI components
+│   │       ├── ui/        # ShadCN/Radix UI components
 │   │       ├── auth/      # Login, UserMenu
 │   │       ├── chat/      # ChatBox, ChatMessage
 │   │       ├── settings/  # SettingsPage
@@ -205,7 +212,7 @@ productsnap/
 | `/api/auth/logout` | POST | Any | Logout |
 | `/api/settings` | GET/PUT | Any | User preferences |
 | `/api/settings/api-keys` | PUT | Any | Save API keys |
-| `/api/chat` | POST | Any | AI chat with RAG |
+| `/api/chat` | POST | Any | AI chat with RAG (50 sources) |
 | `/api/chat/providers` | GET | Any | Get AI providers |
 | `/api/admin/users` | GET | Admin | List all users |
 | `/api/admin/users/:id/role` | PUT | Admin | Change user role |
@@ -213,24 +220,19 @@ productsnap/
 
 ---
 
-## Feed Categories
+## AI Chat - Full Knowledge Base Search
 
-ProductSnap aggregates content from these categories:
+The AI chat searches **ALL** 3,300+ articles and 298 podcast transcripts to find the most relevant content for your question.
 
-| Category | Example Sources | Feed Count |
-|----------|-----------------|------------|
-| **Product Management** | Mind the Product, SVPG, Product Talk | 30+ |
-| **Product Strategy** | Stratechery, First Round Review, a16z | 15+ |
-| **Product Design** | UX Collective, Nielsen Norman, Figma | 20+ |
-| **Product Analytics** | Amplitude, Mixpanel, PostHog | 10+ |
-| **Product Growth** | Reforge, Andrew Chen, Elena Verna | 10+ |
-| **Product Launch** | BetaList, TechCrunch, VentureBeat | 40+ |
-| **Tech News** | Hacker News, The Verge, Ars Technica | 20+ |
-| **PM Thought Leaders** | Lenny's Newsletter, John Cutler | 20+ |
+### How It Works
+1. Your question is analyzed for keywords and phrases
+2. Every article and podcast is scored for relevance
+3. Top 50 most relevant sources are selected
+4. 800-character snippets are extracted from each source
+5. AI generates a response using this comprehensive context
+6. Sources are cited for verification
 
----
-
-## AI Chat Usage
+### Usage
 
 1. **Login** with Google account
 2. Go to **Settings** -> **API Keys**
@@ -241,6 +243,7 @@ ProductSnap aggregates content from these categories:
    - "What does Brian Chesky say about product management?"
    - "Summarize best practices for product launches"
    - "What are the key metrics for product-led growth?"
+   - "Compare what different guests said about hiring PMs"
 
 ### Supported Models
 
@@ -260,6 +263,21 @@ ProductSnap aggregates content from these categories:
 - Gemini 1.5 Pro
 - Gemini 1.5 Flash
 - Gemini 2.0 Flash (Experimental)
+
+---
+
+## Security Features
+
+ProductSnap implements comprehensive security measures:
+
+- **No Hardcoded Secrets** - All secrets must be set via environment variables
+- **AES-256-GCM Encryption** - API keys encrypted with random IV and authentication tag
+- **httpOnly Cookies** - JWT tokens stored in httpOnly cookies (XSS-safe)
+- **SameSite Cookies** - CSRF protection via strict same-site policy
+- **SSRF Protection** - URL validation blocks internal network access
+- **Input Validation** - Length limits and format validation on all inputs
+- **Rate Limiting** - Per-endpoint rate limits prevent abuse
+- **ReDoS Protection** - Safe string matching instead of user-controlled regex
 
 ---
 
@@ -285,15 +303,6 @@ npm run build:client
 # Start production server
 NODE_ENV=production npm start
 ```
-
-### Database
-
-ProductSnap uses LowDB (JSON file database). The database file is `content-aggregator.json` and contains:
-
-- `feeds` - RSS feed configurations
-- `articles` - Fetched articles
-- `users` - User accounts and settings
-- `metadata` - System information
 
 ---
 

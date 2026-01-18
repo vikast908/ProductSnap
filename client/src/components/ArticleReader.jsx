@@ -3,28 +3,11 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
-  X,
-  ExternalLink,
-  ChevronLeft,
-  ChevronRight,
-  Type,
-  Sun,
-  Moon,
-  BookOpen,
-  Clock,
-  User,
-  Globe
+  X, ExternalLink, ChevronLeft, ChevronRight,
+  Type, Clock, User, Globe
 } from 'lucide-react'
 
-// Constants defined outside component to prevent recreation
-const FONT_SIZES = ['sm', 'base', 'lg', 'xl']
-const READING_MODES = ['light', 'sepia', 'dark']
-const FONT_SIZE_CLASSES = {
-  sm: 'text-sm',
-  base: 'text-base',
-  lg: 'text-lg',
-  xl: 'text-xl'
-}
+const FONT_SIZES = ['base', 'lg', 'xl']
 
 export function ArticleReader({
   article,
@@ -37,10 +20,9 @@ export function ArticleReader({
   const [content, setContent] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [fontSize, setFontSize] = useState('base')
-  const [readingMode, setReadingMode] = useState('light')
+  const [fontSize, setFontSize] = useState('lg')
 
-  // Fetch article content with AbortController for cleanup
+  // Fetch article content
   useEffect(() => {
     if (!article?.link) return
 
@@ -56,97 +38,45 @@ export function ArticleReader({
           { signal: abortController.signal }
         )
 
-        if (!response.ok) {
-          throw new Error('Failed to extract article content')
-        }
+        if (!response.ok) throw new Error('Failed to extract article content')
 
         const data = await response.json()
         setContent(data)
       } catch (err) {
-        // Don't set error for aborted requests
         if (err.name === 'AbortError') return
-        console.error('Error fetching article:', err)
         setError(err.message)
       } finally {
-        if (!abortController.signal.aborted) {
-          setLoading(false)
-        }
+        if (!abortController.signal.aborted) setLoading(false)
       }
     }
 
     fetchContent()
-
-    // Cleanup: abort fetch if component unmounts or article changes
     return () => abortController.abort()
   }, [article?.link])
 
   // Keyboard navigation
   const handleKeyDown = useCallback((e) => {
-    if (e.key === 'Escape') {
-      onClose()
-    } else if (e.key === 'ArrowLeft' && hasPrev) {
-      onPrev()
-    } else if (e.key === 'ArrowRight' && hasNext) {
-      onNext()
-    }
+    if (e.key === 'Escape') onClose()
+    else if (e.key === 'ArrowLeft' && hasPrev) onPrev()
+    else if (e.key === 'ArrowRight' && hasNext) onNext()
   }, [onClose, onPrev, onNext, hasPrev, hasNext])
 
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown)
-    // Prevent body scroll when reader is open
     document.body.style.overflow = 'hidden'
-
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = ''
     }
   }, [handleKeyDown])
 
-  // Memoized handlers to prevent unnecessary re-renders
   const cycleFontSize = useCallback(() => {
     setFontSize(prev => {
-      const currentIndex = FONT_SIZES.indexOf(prev)
-      return FONT_SIZES[(currentIndex + 1) % FONT_SIZES.length]
+      const idx = FONT_SIZES.indexOf(prev)
+      return FONT_SIZES[(idx + 1) % FONT_SIZES.length]
     })
   }, [])
 
-  const cycleReadingMode = useCallback(() => {
-    setReadingMode(prev => {
-      const currentIndex = READING_MODES.indexOf(prev)
-      return READING_MODES[(currentIndex + 1) % READING_MODES.length]
-    })
-  }, [])
-
-  const openExternalLink = useCallback(() => {
-    window.open(article.link, '_blank')
-  }, [article?.link])
-
-  // Memoized computed values
-  const readingModeClasses = useMemo(() => {
-    switch (readingMode) {
-      case 'sepia': return 'bg-amber-50 text-amber-950'
-      case 'dark': return 'bg-slate-900 text-slate-100'
-      default: return 'bg-white text-slate-900'
-    }
-  }, [readingMode])
-
-  const toolbarClasses = useMemo(() => {
-    switch (readingMode) {
-      case 'dark': return 'border-slate-700 bg-slate-800'
-      case 'sepia': return 'border-amber-200 bg-amber-100'
-      default: return 'border-gray-200 bg-gray-50'
-    }
-  }, [readingMode])
-
-  const readingModeIcon = useMemo(() => {
-    switch (readingMode) {
-      case 'sepia': return <BookOpen className="h-4 w-4" />
-      case 'dark': return <Moon className="h-4 w-4" />
-      default: return <Sun className="h-4 w-4" />
-    }
-  }, [readingMode])
-
-  // Memoized formatted date
   const formattedDate = useMemo(() => {
     if (!article?.pubDate) return ''
     return new Date(article.pubDate).toLocaleDateString('en-US', {
@@ -156,210 +86,177 @@ export function ArticleReader({
     })
   }, [article?.pubDate])
 
-  // Memoized reading time estimate
   const readTime = useMemo(() => {
     if (!content?.textContent) return ''
     const words = content.textContent.split(/\s+/).length
-    const minutes = Math.max(1, Math.ceil(words / 200))
-    return `${minutes} min read`
+    return `${Math.max(1, Math.ceil(words / 200))} min read`
   }, [content?.textContent])
+
+  const fontSizeClass = {
+    base: 'text-base',
+    lg: 'text-lg',
+    xl: 'text-xl'
+  }[fontSize]
+
+  const titleSize = {
+    base: 'text-2xl',
+    lg: 'text-3xl',
+    xl: 'text-4xl'
+  }[fontSize]
 
   if (!article) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Reader Modal */}
-      <div className={`relative flex flex-col h-full max-w-4xl mx-auto w-full shadow-2xl ${readingModeClasses}`}>
-        {/* Toolbar */}
-        <div className={`flex items-center justify-between px-4 py-3 border-b ${toolbarClasses}`}>
-          <div className="flex items-center gap-2">
-            {/* Navigation */}
+      {/* Modal */}
+      <div className="relative bg-background w-full h-full md:h-[95vh] md:max-w-4xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-scale-in">
+        {/* Header */}
+        <header className="flex items-center justify-between px-4 md:px-6 h-14 border-b border-border/50 flex-shrink-0">
+          <div className="flex items-center gap-1">
             <Button
               variant="ghost"
               size="icon"
               onClick={onPrev}
               disabled={!hasPrev}
-              className="h-8 w-8"
-              title="Previous article (←)"
+              className="h-9 w-9"
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-5 w-5" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
               onClick={onNext}
               disabled={!hasNext}
-              className="h-8 w-8"
-              title="Next article (→)"
+              className="h-9 w-9"
             >
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-5 w-5" />
             </Button>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Font Size */}
+          <div className="flex items-center gap-1">
             <Button
               variant="ghost"
               size="sm"
               onClick={cycleFontSize}
-              className="h-8 px-3"
-              title={`Font size: ${fontSize}`}
+              className="h-9 px-3 text-muted-foreground"
             >
-              <Type className="h-4 w-4 mr-1" />
-              <span className="text-xs uppercase">{fontSize}</span>
+              <Type className="h-4 w-4 mr-1.5" />
+              <span className="text-xs font-medium uppercase">{fontSize}</span>
             </Button>
-
-            {/* Reading Mode */}
             <Button
               variant="ghost"
               size="icon"
-              onClick={cycleReadingMode}
-              className="h-8 w-8"
-              title={`Reading mode: ${readingMode}`}
-            >
-              {readingModeIcon}
-            </Button>
-
-            {/* External Link */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={openExternalLink}
-              className="h-8 w-8"
-              title="Open in new tab"
+              onClick={() => window.open(article.link, '_blank')}
+              className="h-9 w-9"
             >
               <ExternalLink className="h-4 w-4" />
             </Button>
-
-            {/* Close */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              className="h-8 w-8"
-              title="Close (Esc)"
-            >
-              <X className="h-4 w-4" />
+            <Button variant="ghost" size="icon" onClick={onClose} className="h-9 w-9">
+              <X className="h-5 w-5" />
             </Button>
           </div>
-        </div>
+        </header>
 
-        {/* Content Area */}
+        {/* Content */}
         <ScrollArea className="flex-1">
-          <div className="max-w-3xl mx-auto px-6 py-8">
-            {/* Article Header */}
-            <header className="mb-8">
-              {/* Category & Badges */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                <Badge>{article.category}</Badge>
-                {readTime && (
-                  <Badge variant="outline" className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {readTime}
-                  </Badge>
-                )}
-              </div>
+          <article className="max-w-2xl mx-auto px-6 py-10">
+            {/* Meta */}
+            <div className="flex flex-wrap items-center gap-3 mb-6 text-sm text-muted-foreground">
+              <Badge variant="secondary">{article.category}</Badge>
+              {readTime && (
+                <span className="flex items-center gap-1.5">
+                  <Clock className="h-4 w-4" />
+                  {readTime}
+                </span>
+              )}
+            </div>
 
-              {/* Title */}
-              <h1 className={`font-bold leading-tight mb-4 ${fontSize === 'xl' ? 'text-4xl' : fontSize === 'lg' ? 'text-3xl' : fontSize === 'base' ? 'text-2xl' : 'text-xl'}`}>
-                {content?.title || article.title}
-              </h1>
+            {/* Title */}
+            <h1 className={`${titleSize} font-semibold tracking-tight leading-tight mb-6`}>
+              {content?.title || article.title}
+            </h1>
 
-              {/* Byline */}
-              <div className={`flex flex-wrap items-center gap-4 text-muted-foreground ${FONT_SIZE_CLASSES[fontSize]}`}>
-                {(article.author || content?.byline) && (
-                  <span className="flex items-center gap-1">
-                    <User className="h-4 w-4" />
-                    {article.author || content?.byline}
-                  </span>
-                )}
-                {formattedDate && (
-                  <span>{formattedDate}</span>
-                )}
-                {(article.feedName || content?.siteName) && (
-                  <span className="flex items-center gap-1">
-                    <Globe className="h-4 w-4" />
-                    {article.feedName || content?.siteName}
-                  </span>
-                )}
-              </div>
-            </header>
+            {/* Author / Source */}
+            <div className={`flex flex-wrap items-center gap-4 mb-10 text-muted-foreground ${fontSizeClass}`}>
+              {(article.author || content?.byline) && (
+                <span className="flex items-center gap-1.5">
+                  <User className="h-4 w-4" />
+                  {article.author || content?.byline}
+                </span>
+              )}
+              {formattedDate && <span>{formattedDate}</span>}
+              {(article.feedName || content?.siteName) && (
+                <span className="flex items-center gap-1.5">
+                  <Globe className="h-4 w-4" />
+                  {article.feedName || content?.siteName}
+                </span>
+              )}
+            </div>
 
-            {/* Loading State */}
+            {/* Loading */}
             {loading && (
-              <div className="flex flex-col items-center justify-center py-20">
-                <div className="relative w-12 h-12 mx-auto mb-4">
-                  <div className="absolute inset-0 rounded-full border-4 border-primary/20"></div>
-                  <div className="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
-                </div>
-                <p className="text-muted-foreground">Loading article content...</p>
+              <div className="flex flex-col items-center py-20">
+                <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+                <p className="text-muted-foreground">Loading article...</p>
               </div>
             )}
 
-            {/* Error State */}
+            {/* Error */}
             {error && (
               <div className="text-center py-20">
-                <p className="text-destructive mb-4">Failed to load article content</p>
-                <p className="text-muted-foreground mb-6">{error}</p>
-                <Button onClick={openExternalLink}>
+                <p className="text-destructive mb-2">Failed to load article</p>
+                <p className="text-muted-foreground text-sm mb-6">{error}</p>
+                <Button onClick={() => window.open(article.link, '_blank')}>
                   <ExternalLink className="h-4 w-4 mr-2" />
-                  Open Original Article
+                  Open Original
                 </Button>
               </div>
             )}
 
-            {/* Article Content */}
+            {/* Content */}
             {!loading && !error && content && (
               <>
-                {/* Excerpt */}
                 {content.excerpt && (
-                  <p className={`text-muted-foreground italic mb-8 leading-relaxed ${FONT_SIZE_CLASSES[fontSize]}`}>
+                  <p className={`text-muted-foreground leading-relaxed mb-10 ${fontSizeClass}`}>
                     {content.excerpt}
                   </p>
                 )}
-
-                {/* Full Content */}
                 <div
-                  className={`article-reader-content prose max-w-none ${FONT_SIZE_CLASSES[fontSize]} ${readingMode === 'dark' ? 'prose-invert' : ''}`}
+                  className={`article-reader-content ${fontSizeClass}`}
                   dangerouslySetInnerHTML={{ __html: content.content }}
                 />
               </>
             )}
 
-            {/* Fallback to description if no content */}
+            {/* Fallback */}
             {!loading && !error && !content && article.description && (
-              <div className={`leading-relaxed ${FONT_SIZE_CLASSES[fontSize]}`}>
-                <p className="mb-6">{article.description}</p>
-                <Button onClick={openExternalLink}>
+              <div className={`leading-relaxed ${fontSizeClass}`}>
+                <p className="mb-8">{article.description}</p>
+                <Button onClick={() => window.open(article.link, '_blank')}>
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Read Full Article
                 </Button>
               </div>
             )}
-          </div>
+          </article>
         </ScrollArea>
 
         {/* Footer */}
-        <div className={`flex items-center justify-between px-4 py-2 border-t text-xs text-muted-foreground ${toolbarClasses}`}>
+        <footer className="flex items-center justify-between px-6 h-12 border-t border-border/50 text-xs text-muted-foreground flex-shrink-0">
           <div className="flex items-center gap-4">
             <span>Esc to close</span>
             <span>← → to navigate</span>
           </div>
-          <Button
-            variant="link"
-            size="sm"
-            onClick={openExternalLink}
-            className="text-xs h-auto p-0"
+          <button
+            onClick={() => window.open(article.link, '_blank')}
+            className="hover:text-foreground transition-colors"
           >
             View Original →
-          </Button>
-        </div>
+          </button>
+        </footer>
       </div>
     </div>
   )

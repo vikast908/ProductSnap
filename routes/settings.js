@@ -1,8 +1,24 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const { authenticateToken } = require('../middleware/auth');
 const { encryptApiKeys, decryptApiKeys } = require('../services/encryption');
 
 const router = express.Router();
+
+// SECURITY: Strict rate limiter for API key verification (prevents brute force)
+const apiKeyVerifyLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 5, // Only 5 verifications per minute per IP
+  message: { error: 'Too many API key verification attempts. Please wait a minute.' }
+});
+
+// SECURITY: Constants for validation
+const MAX_API_KEY_LENGTH = 256;
+const API_KEY_PATTERNS = {
+  openai: /^sk-[A-Za-z0-9_-]+$/,
+  anthropic: /^sk-ant-[A-Za-z0-9_-]+$/,
+  google: /^[A-Za-z0-9_-]+$/
+};
 
 /**
  * Create settings routes
@@ -134,6 +150,26 @@ function createSettingsRoutes(db) {
         }
       }
 
+      // SECURITY: Validate API key values
+      for (const [provider, key] of Object.entries(apiKeys)) {
+        if (key === null || key === '' || key === undefined) continue; // Allow removal
+
+        if (typeof key !== 'string') {
+          return res.status(400).json({ error: `Invalid API key type for ${provider}` });
+        }
+
+        // Length check
+        if (key.length > MAX_API_KEY_LENGTH) {
+          return res.status(400).json({ error: `API key for ${provider} is too long` });
+        }
+
+        // Format check (basic pattern matching)
+        const pattern = API_KEY_PATTERNS[provider];
+        if (pattern && !pattern.test(key)) {
+          return res.status(400).json({ error: `Invalid API key format for ${provider}` });
+        }
+      }
+
       // Get existing encrypted keys
       const existingKeys = user.settings?.apiKeys || {};
 
@@ -238,7 +274,8 @@ function createSettingsRoutes(db) {
   });
 
   // Verify an API key works (test it)
-  router.post('/api-keys/verify/:provider', authenticateToken, async (req, res) => {
+  // SECURITY: Apply strict rate limiting to prevent abuse
+  router.post('/api-keys/verify/:provider', authenticateToken, apiKeyVerifyLimiter, async (req, res) => {
     try {
       const { provider } = req.params;
       const { apiKey } = req.body;
@@ -250,6 +287,16 @@ function createSettingsRoutes(db) {
       const validProviders = ['openai', 'anthropic', 'google'];
       if (!validProviders.includes(provider)) {
         return res.status(400).json({ error: 'Invalid provider' });
+      }
+
+      // SECURITY: Validate API key format before making external calls
+      if (typeof apiKey !== 'string' || apiKey.length > MAX_API_KEY_LENGTH) {
+        return res.status(400).json({ error: 'Invalid API key format' });
+      }
+
+      const pattern = API_KEY_PATTERNS[provider];
+      if (pattern && !pattern.test(apiKey)) {
+        return res.status(400).json({ error: 'Invalid API key format' });
       }
 
       // Test the API key by making a simple request
@@ -280,7 +327,8 @@ function createSettingsRoutes(db) {
           isValid = true;
         }
       } catch (error) {
-        errorMessage = error.message || 'Invalid API key';
+        // SECURITY: Don't expose detailed error messages
+        errorMessage = 'API key verification failed';
       }
 
       res.json({

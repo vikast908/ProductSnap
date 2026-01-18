@@ -1,14 +1,26 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'default-jwt-secret-change-me';
+// SECURITY: Require JWT_SECRET to be set - never use defaults
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+  console.error('FATAL: JWT_SECRET environment variable must be set and be at least 32 characters');
+  process.exit(1);
+}
 
 /**
  * Middleware to verify JWT token
+ * Checks for token in: 1) httpOnly cookie (preferred), 2) Authorization header
  * Extracts user from token and attaches to request
  */
 function authenticateToken(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+  // First try httpOnly cookie (more secure)
+  let token = req.cookies?.auth_token;
+
+  // Fall back to Authorization header for API clients
+  if (!token) {
+    const authHeader = req.headers['authorization'];
+    token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+  }
 
   if (!token) {
     return res.status(401).json({ error: 'Access token required' });
@@ -31,8 +43,14 @@ function authenticateToken(req, res, next) {
  * Useful for routes that work differently for authenticated users
  */
 function optionalAuth(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  // First try httpOnly cookie (more secure)
+  let token = req.cookies?.auth_token;
+
+  // Fall back to Authorization header for API clients
+  if (!token) {
+    const authHeader = req.headers['authorization'];
+    token = authHeader && authHeader.split(' ')[1];
+  }
 
   if (!token) {
     req.user = null;
@@ -63,7 +81,7 @@ function generateToken(user) {
       role: user.role
     },
     JWT_SECRET,
-    { expiresIn: '7d' }
+    { expiresIn: '24h' } // Reduced from 7d for security
   );
 }
 

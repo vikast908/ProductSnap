@@ -16,6 +16,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const session = require('express-session');
 const passport = require('passport');
+const cookieParser = require('cookie-parser');
 
 // Import routes
 const createAuthRoutes = require('./routes/auth');
@@ -175,24 +176,42 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
+// SECURITY: Validate required environment variables
+const requiredEnvVars = ['JWT_SECRET', 'ENCRYPTION_KEY', 'SESSION_SECRET', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'];
+const missingEnvVars = requiredEnvVars.filter(v => !process.env[v]);
+if (missingEnvVars.length > 0) {
+  console.error(`FATAL: Missing required environment variables: ${missingEnvVars.join(', ')}`);
+  process.exit(1);
+}
+
+// SECURITY: Validate CORS origin in production
+const isProduction = process.env.NODE_ENV === 'production';
+if (isProduction && !process.env.FRONTEND_URL) {
+  console.error('FATAL: FRONTEND_URL must be set in production');
+  process.exit(1);
+}
+
 // Middleware
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
+  origin: isProduction
     ? process.env.FRONTEND_URL
     : ['http://localhost:5173', 'http://localhost:3000'],
   credentials: true
 }));
-app.use(express.json());
+app.use(express.json({ limit: '1mb' })); // Limit request body size
+app.use(cookieParser()); // Required for httpOnly cookie auth
 app.use(express.static(path.join(__dirname, 'client', 'dist')));
 
 // Session middleware for Passport
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-session-secret',
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    secure: isProduction,
+    httpOnly: true,
+    sameSite: isProduction ? 'strict' : 'lax',
+    maxAge: 4 * 60 * 60 * 1000 // 4 hours (reduced from 7 days)
   }
 }));
 
@@ -1902,6 +1921,50 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// SECURITY: Validate URL to prevent SSRF attacks
+function isValidExternalUrl(urlString) {
+  try {
+    const url = new URL(urlString);
+
+    // Only allow http and https
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      return false;
+    }
+
+    // Block internal/private IP ranges
+    const hostname = url.hostname.toLowerCase();
+
+    // Block localhost variants
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1') {
+      return false;
+    }
+
+    // Block private IP ranges (10.x.x.x, 172.16-31.x.x, 192.168.x.x)
+    const ipv4Regex = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+    const ipMatch = hostname.match(ipv4Regex);
+    if (ipMatch) {
+      const [, a, b] = ipMatch.map(Number);
+      if (a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || a === 127) {
+        return false;
+      }
+      // Block 0.0.0.0 and 169.254.x.x (link-local)
+      if (a === 0 || a === 169) {
+        return false;
+      }
+    }
+
+    // Block internal service names
+    const blockedHostnames = ['metadata', 'metadata.google', 'metadata.google.internal', '169.254.169.254'];
+    if (blockedHostnames.some(blocked => hostname.includes(blocked))) {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Extract full article content using Readability
 app.get('/api/extract', async (req, res) => {
   try {
@@ -1911,15 +1974,27 @@ app.get('/api/extract', async (req, res) => {
       return res.status(400).json({ error: 'URL parameter is required' });
     }
 
-    console.log(`Extracting content from: ${url}`);
+    // SECURITY: Validate URL to prevent SSRF
+    if (!isValidExternalUrl(url)) {
+      return res.status(400).json({ error: 'Invalid or blocked URL. Only public HTTP/HTTPS URLs are allowed.' });
+    }
 
     // Fetch the article HTML
     const response = await axios.get(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
       },
-      timeout: 10000
+      timeout: 10000,
+      maxRedirects: 3, // Limit redirects
+      validateStatus: (status) => status >= 200 && status < 400 // Only accept success responses
     });
+
+    // SECURITY: Validate redirect URL if there was a redirect
+    if (response.request?.res?.responseUrl) {
+      if (!isValidExternalUrl(response.request.res.responseUrl)) {
+        return res.status(400).json({ error: 'Redirect to blocked URL detected' });
+      }
+    }
 
     // Parse with JSDOM
     const dom = new JSDOM(response.data, { url });
@@ -1941,7 +2016,8 @@ app.get('/api/extract', async (req, res) => {
     });
   } catch (err) {
     console.error('Error extracting article:', err.message);
-    res.status(500).json({ error: 'Failed to extract article content', message: err.message });
+    // SECURITY: Don't leak internal error details
+    res.status(500).json({ error: 'Failed to extract article content' });
   }
 });
 

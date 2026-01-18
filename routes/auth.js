@@ -109,8 +109,19 @@ function createAuthRoutes(db) {
         // Generate JWT token
         const token = generateToken(req.user);
 
-        // Redirect to frontend with token
-        res.redirect(`/?token=${token}`);
+        // SECURITY: Set token in httpOnly cookie instead of URL parameter
+        // This prevents XSS attacks from stealing the token
+        const isProduction = process.env.NODE_ENV === 'production';
+        res.cookie('auth_token', token, {
+          httpOnly: true,
+          secure: isProduction,
+          sameSite: isProduction ? 'strict' : 'lax',
+          maxAge: 24 * 60 * 60 * 1000, // 24 hours (matches JWT expiry)
+          path: '/'
+        });
+
+        // Redirect to frontend without token in URL
+        res.redirect('/?auth=success');
       } catch (error) {
         console.error('Callback error:', error);
         res.redirect('/login?error=token_generation_failed');
@@ -154,9 +165,15 @@ function createAuthRoutes(db) {
     }
   });
 
-  // Logout (client-side token removal, but we can log it)
+  // Logout - clear the httpOnly cookie
   router.post('/logout', authenticateToken, (req, res) => {
-    console.log(`User logged out: ${req.user.email}`);
+    const isProduction = process.env.NODE_ENV === 'production';
+    res.clearCookie('auth_token', {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'strict' : 'lax',
+      path: '/'
+    });
     res.json({ success: true, message: 'Logged out successfully' });
   });
 

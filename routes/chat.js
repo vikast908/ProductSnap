@@ -42,6 +42,39 @@ function createChatRoutes(db, cache) {
         return res.status(400).json({ error: 'Message is required' });
       }
 
+      // SECURITY: Validate message length to prevent DoS
+      const MAX_MESSAGE_LENGTH = 10000;
+      if (message.length > MAX_MESSAGE_LENGTH) {
+        return res.status(400).json({ error: `Message too long. Maximum ${MAX_MESSAGE_LENGTH} characters allowed.` });
+      }
+
+      // SECURITY: Validate history array
+      const MAX_HISTORY_LENGTH = 50;
+      const MAX_HISTORY_MESSAGE_LENGTH = 10000;
+      if (!Array.isArray(history)) {
+        return res.status(400).json({ error: 'History must be an array' });
+      }
+      if (history.length > MAX_HISTORY_LENGTH) {
+        return res.status(400).json({ error: `History too long. Maximum ${MAX_HISTORY_LENGTH} messages allowed.` });
+      }
+      for (const h of history) {
+        if (!h || typeof h.role !== 'string' || typeof h.content !== 'string') {
+          return res.status(400).json({ error: 'Invalid history format' });
+        }
+        if (!['user', 'assistant'].includes(h.role)) {
+          return res.status(400).json({ error: 'Invalid history role' });
+        }
+        if (h.content.length > MAX_HISTORY_MESSAGE_LENGTH) {
+          return res.status(400).json({ error: 'History message too long' });
+        }
+      }
+
+      // SECURITY: Validate provider if specified
+      const validProviders = ['openai', 'anthropic', 'google'];
+      if (provider && !validProviders.includes(provider)) {
+        return res.status(400).json({ error: 'Invalid provider' });
+      }
+
       // Get user and their API keys
       const user = db.get('users').find({ id: req.user.id }).value();
 
@@ -74,9 +107,9 @@ function createChatRoutes(db, cache) {
         });
       }
 
-      // Search for relevant content (RAG)
+      // Search for relevant content (RAG) - searches ALL articles & podcasts, returns top 50
       const searchResults = searchContent(message, db, cache, {
-        maxResults: 5,
+        maxResults: 50,
         includeArticles: true,
         includePodcasts: true
       });
@@ -138,8 +171,18 @@ function createChatRoutes(db, cache) {
         return res.status(400).json({ error: 'Query is required' });
       }
 
+      // SECURITY: Validate query length
+      const MAX_QUERY_LENGTH = 1000;
+      if (query.length > MAX_QUERY_LENGTH) {
+        return res.status(400).json({ error: `Query too long. Maximum ${MAX_QUERY_LENGTH} characters allowed.` });
+      }
+
+      // SECURITY: Validate maxResults
+      const MAX_RESULTS_LIMIT = 50;
+      const sanitizedMaxResults = Math.min(Math.max(1, parseInt(maxResults) || 10), MAX_RESULTS_LIMIT);
+
       const searchResults = searchContent(query, db, cache, {
-        maxResults,
+        maxResults: sanitizedMaxResults,
         includeArticles: true,
         includePodcasts: true
       });

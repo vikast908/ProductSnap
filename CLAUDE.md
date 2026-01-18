@@ -4,7 +4,7 @@ This file provides context for Claude AI when working on the ProductSnap codebas
 
 ## Project Overview
 
-**ProductSnap** is an AI-powered Product Management knowledge hub that aggregates content from 167+ RSS feeds, includes 298 Lenny's Podcast transcripts, and provides RAG-based AI chat functionality.
+**ProductSnap** is an AI-powered Product Management knowledge hub that aggregates content from 167+ RSS feeds, includes 298 Lenny's Podcast transcripts, and provides RAG-based AI chat functionality with full knowledge base search across all content.
 
 ## Tech Stack
 
@@ -13,18 +13,44 @@ This file provides context for Claude AI when working on the ProductSnap codebas
 - **Framework**: Express.js
 - **Database**: LowDB (JSON file: `content-aggregator.json`)
 - **Authentication**: Passport.js with Google OAuth 2.0
-- **Session**: JWT (JSON Web Tokens)
-- **Encryption**: crypto-js (AES-256 for API keys)
+- **Session**: JWT in httpOnly cookies (XSS-safe)
+- **Encryption**: Node.js crypto (AES-256-GCM for API keys)
 - **RSS Parsing**: rss-parser
 - **AI SDKs**: OpenAI, @anthropic-ai/sdk, @google/generative-ai
 
 ### Frontend
 - **Framework**: React 19 with Vite
 - **Routing**: React Router v6
-- **Styling**: Tailwind CSS
+- **Styling**: Tailwind CSS (Apple-inspired design)
 - **Components**: Radix UI primitives
 - **Icons**: Lucide React
 - **Markdown**: react-markdown with remark-gfm
+
+## Security Features
+
+### Authentication & Session
+- JWT tokens stored in httpOnly cookies (not localStorage)
+- SameSite cookie attribute for CSRF protection
+- 24-hour token expiry
+- Secure flag in production
+
+### Encryption
+- AES-256-GCM authenticated encryption for API keys
+- Random IV for each encryption operation
+- Authentication tag for integrity verification
+- Legacy CryptoJS decryption support for migration
+
+### Input Validation
+- Message length limits (10,000 chars)
+- History array validation (50 messages max)
+- Query length limits (1,000 chars)
+- Provider whitelist validation
+
+### Protection Measures
+- SSRF protection on URL extraction (blocks internal IPs, metadata endpoints)
+- ReDoS protection (string methods instead of user-controlled regex)
+- Rate limiting on sensitive endpoints (API key verification)
+- Required environment variables validation at startup
 
 ## Key Files
 
@@ -32,29 +58,29 @@ This file provides context for Claude AI when working on the ProductSnap codebas
 - `aggregator-server.js` - Main Express server, RSS aggregation, all API routes
 
 ### Middleware
-- `middleware/auth.js` - JWT verification
+- `middleware/auth.js` - JWT verification from httpOnly cookie
 - `middleware/rbac.js` - Role-based access control (admin/user)
 
 ### Routes
-- `routes/auth.js` - Google OAuth flow
-- `routes/settings.js` - User preferences and API keys
-- `routes/chat.js` - AI chat with RAG
+- `routes/auth.js` - Google OAuth flow, sets httpOnly cookie
+- `routes/settings.js` - User preferences and API keys (with rate limiting)
+- `routes/chat.js` - AI chat with RAG (50 sources)
 - `routes/admin.js` - User management (admin only)
 
 ### Services
-- `services/encryption.js` - AES-256 encrypt/decrypt for API keys
+- `services/encryption.js` - AES-256-GCM encrypt/decrypt for API keys
 - `services/ai/index.js` - AI service factory
 - `services/ai/openai.js` - OpenAI GPT integration
 - `services/ai/anthropic.js` - Anthropic Claude integration
 - `services/ai/google.js` - Google Gemini integration
-- `services/rag/search.js` - Content search for RAG context
+- `services/rag/search.js` - Content search for RAG context (50 sources, 800-char snippets)
 
 ### Frontend Entry
 - `client/src/main.jsx` - React app entry
-- `client/src/App.jsx` - Main component with routing
+- `client/src/App.jsx` - Main component with routing (Apple-inspired design)
 
 ### Key Components
-- `client/src/context/AuthContext.jsx` - Auth state management
+- `client/src/context/AuthContext.jsx` - Auth state management (httpOnly cookie auth)
 - `client/src/components/auth/` - Login, UserMenu
 - `client/src/components/chat/` - ChatBox, ChatMessage, ChatPage
 - `client/src/components/settings/SettingsPage.jsx` - Settings with API keys and model selection
@@ -104,16 +130,16 @@ The LowDB database (`content-aggregator.json`) contains:
     role: "admin" | "user",
     settings: {
       apiKeys: {
-        openai: string (encrypted),
-        anthropic: string (encrypted),
-        google: string (encrypted)
+        openai: string (encrypted with AES-256-GCM),
+        anthropic: string (encrypted with AES-256-GCM),
+        google: string (encrypted with AES-256-GCM)
       },
       preferences: {
         defaultAIProvider: string,
         openaiModel: string,
         anthropicModel: string,
         googleModel: string,
-        theme: string
+        theme: "light" | "dark" | "system"
       }
     },
     createdAt: string,
@@ -129,41 +155,64 @@ The LowDB database (`content-aggregator.json`) contains:
 
 ## Environment Variables
 
-Required in `.env`:
+Required in `.env` (all secrets must be 32+ characters):
 ```
 GOOGLE_CLIENT_ID=xxx
 GOOGLE_CLIENT_SECRET=xxx
 GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
-JWT_SECRET=32_char_secret
-ENCRYPTION_KEY=32_char_key
+JWT_SECRET=your_32_char_or_longer_secret_key
+ENCRYPTION_KEY=your_32_char_or_longer_encryption_key
 ADMIN_EMAIL=admin@email.com
-SESSION_SECRET=session_secret
+SESSION_SECRET=your_session_secret_key
 PORT=3000
 NODE_ENV=development
+FRONTEND_URL=https://yourdomain.com  # Production only
 ```
 
 ## API Routes
 
 ### Public
 - `GET /api/articles` - Paginated articles
+- `GET /api/articles/:id` - Single article
 - `GET /api/podcasts` - Podcast transcripts
+- `GET /api/podcasts/:id` - Single transcript
 - `GET /api/search` - Search content
 - `GET /api/categories` - Category list
 - `GET /api/feeds` - Feed list
 - `GET /api/stats` - Statistics
 
-### Authenticated (JWT Required)
+### Authenticated (JWT in httpOnly cookie)
 - `GET /api/auth/me` - Current user
-- `POST /api/auth/logout` - Logout
+- `POST /api/auth/logout` - Logout (clears cookie)
 - `GET/PUT /api/settings` - User settings
-- `PUT /api/settings/api-keys` - Save API keys
-- `POST /api/chat` - AI chat with RAG
+- `PUT /api/settings/api-keys` - Save API keys (rate limited)
+- `POST /api/chat` - AI chat with RAG (50 sources)
+- `POST /api/chat/search` - RAG search without AI
 - `GET /api/chat/providers` - Available AI providers
 
 ### Admin Only
 - `GET /api/admin/users` - List users
 - `PUT /api/admin/users/:id/role` - Change role
 - `POST /api/refresh` - Manual feed refresh
+
+## RAG (Retrieval-Augmented Generation)
+
+The AI chat searches ALL articles and podcast transcripts:
+- Searches 3,300+ articles and 298 podcast transcripts
+- Returns top 50 most relevant sources
+- 800-character snippets from each source
+- Keyword extraction with stop word removal
+- Phrase matching (2-3 word combinations)
+- Weighted scoring (title 3x, guest 4x, description 2x)
+
+## UI Design
+
+Apple-inspired design with:
+- Light and dark themes only (system-aware)
+- Glass morphism header with backdrop blur
+- Clean, minimal aesthetic
+- Smooth animations
+- Responsive design (mobile, tablet, desktop)
 
 ## Common Tasks
 
@@ -182,9 +231,8 @@ Edit `PM_FEEDS` array in `aggregator-server.js`:
 1. Update model list in `client/src/components/settings/SettingsPage.jsx`
 2. The backend AI services automatically use the selected model from preferences
 
-### Adding a New Theme
-1. Add theme class in `client/src/index.css`
-2. Add option in `client/src/App.jsx` theme selector
+### Changing Themes
+Only light and dark themes are supported. Theme preference stored in user settings.
 
 ## Known Issues
 
@@ -202,8 +250,10 @@ Many feeds return 404 or have SSL issues. The app handles these gracefully and c
 - Use `safeDbWrite()` for all database writes
 - Frontend components use Radix UI primitives from `@/components/ui/`
 - API responses include error handling with appropriate status codes
-- JWT tokens expire in 7 days
-- API keys are encrypted before storage
+- JWT tokens expire in 24 hours (stored in httpOnly cookie)
+- API keys are encrypted with AES-256-GCM before storage
+- All user input must be validated for length and format
+- No hardcoded secrets - all secrets from environment variables
 
 ## Testing
 
@@ -211,12 +261,14 @@ Currently no automated tests. Test manually:
 1. `npm start` - Start server
 2. Visit http://localhost:3000
 3. Login with Google
-4. Test chat, settings, admin panel
+4. Test chat (verify 50 sources in response)
+5. Test settings, admin panel
 
 ## Deployment Notes
 
 1. Build frontend: `npm run build:client`
 2. Set `NODE_ENV=production`
-3. Ensure `.env` has production values
-4. Database file needs write permissions
-5. Google OAuth callback URL must match production domain
+3. Ensure `.env` has production values (32+ char secrets)
+4. Set `FRONTEND_URL` for CORS
+5. Database file needs write permissions
+6. Google OAuth callback URL must match production domain

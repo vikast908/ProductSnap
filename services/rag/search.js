@@ -6,6 +6,15 @@
  */
 
 /**
+ * Escape special regex characters to prevent ReDoS attacks
+ * @param {string} str - String to escape
+ * @returns {string} - Escaped string safe for use in RegExp
+ */
+function escapeRegExp(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
  * Simple text similarity score based on keyword matching
  * @param {string} text - Text to search in
  * @param {Array<string>} keywords - Keywords to search for
@@ -17,16 +26,17 @@ function calculateRelevance(text, keywords) {
   let score = 0;
 
   for (const keyword of keywords) {
+    // SECURITY: Limit keyword length to prevent DoS
+    if (keyword.length > 100) continue;
+
     const keywordLower = keyword.toLowerCase();
-    // Count occurrences
-    const regex = new RegExp(keywordLower, 'gi');
-    const matches = textLower.match(regex);
-    if (matches) {
-      score += matches.length;
+    // SECURITY: Use string methods instead of regex to prevent ReDoS
+    // Count occurrences using split (safe, no regex)
+    const occurrences = textLower.split(keywordLower).length - 1;
+    if (occurrences > 0) {
+      score += occurrences;
       // Bonus for exact phrase match
-      if (textLower.includes(keywordLower)) {
-        score += 2;
-      }
+      score += 2;
     }
   }
 
@@ -133,10 +143,10 @@ function getRelevantSnippet(content, keywords, snippetLength = 500) {
  */
 function searchContent(query, db, cache, options = {}) {
   const {
-    maxResults = 5,
+    maxResults = 50, // Search across ALL content, return top 50 most relevant
     includeArticles = true,
     includePodcasts = true,
-    snippetLength = 500
+    snippetLength = 800 // Longer snippets for better context
   } = options;
 
   const keywords = extractKeywords(query);
