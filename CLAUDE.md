@@ -25,6 +25,7 @@ This file provides context for Claude AI when working on the ProductSnap codebas
 - **Components**: Radix UI primitives
 - **Icons**: Lucide React
 - **Markdown**: react-markdown with remark-gfm
+- **Syntax Highlighting**: rehype-highlight with highlight.js
 
 ## Security Features
 
@@ -73,7 +74,7 @@ This file provides context for Claude AI when working on the ProductSnap codebas
 - `services/ai/openai.js` - OpenAI GPT integration
 - `services/ai/anthropic.js` - Anthropic Claude integration
 - `services/ai/google.js` - Google Gemini integration
-- `services/rag/search.js` - Content search for RAG context (50 sources, 800-char snippets)
+- `services/rag/search.js` - Content search for RAG context (50 sources, tiered snippets)
 
 ### Frontend Entry
 - `client/src/main.jsx` - React app entry
@@ -200,10 +201,21 @@ FRONTEND_URL=https://yourdomain.com  # Production only
 The AI chat searches ALL articles and podcast transcripts:
 - Searches 3,300+ articles and 298 podcast transcripts
 - Returns top 50 most relevant sources
-- 800-character snippets from each source
+- **Tiered snippet strategy** for token optimization (~47% savings):
+  - Tier 1 (top 10): 800-char snippets
+  - Tier 2 (next 15): 400-char snippets
+  - Tier 3 (last 25): 150-char snippets
 - Keyword extraction with stop word removal
 - Phrase matching (2-3 word combinations)
 - Weighted scoring (title 3x, guest 4x, description 2x)
+
+## Chat Features
+
+- **Syntax Highlighting**: Code blocks with GitHub Dark theme (rehype-highlight)
+- **Copy Button**: One-click copy for code snippets with language labels
+- **Rich Markdown**: Tables, blockquotes, lists, headings
+- **Custom Components**: Styled table cells, blockquotes, inline code
+- **AI Formatting Guidelines**: System prompts instruct AI to use rich formatting
 
 ## UI Design
 

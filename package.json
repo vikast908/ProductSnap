@@ -1,6 +1,6 @@
 {
   "name": "productsnap",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "ProductSnap - AI-Powered Product Management Knowledge Hub with 167+ RSS feeds, Lenny's Podcast transcripts, and RAG-based AI chat",
   "main": "aggregator-server.js",
   "scripts": {

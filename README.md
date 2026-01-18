@@ -1,10 +1,14 @@
+<p align="center">
+  <img src="client/public/logo512.png" alt="ProductSnap Logo" width="120" />
+</p>
+
 # ProductSnap
 
 **AI-Powered Product Management Knowledge Hub**
 
 ProductSnap is a comprehensive content aggregator designed for product managers, providing curated articles from 167+ RSS feeds, 298 Lenny's Podcast transcripts, and an AI-powered chat assistant with full RAG search across all content.
 
-![Version](https://img.shields.io/badge/version-3.0.0-blue)
+![Version](https://img.shields.io/badge/version-3.1.0-blue)
 ![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-green)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -21,9 +25,10 @@ ProductSnap is a comprehensive content aggregator designed for product managers,
 ### AI-Powered Chat (RAG)
 - **Full Knowledge Base Search** - AI searches ALL articles and podcasts, returns top 50 most relevant sources
 - **Multi-provider Support** - OpenAI (GPT-4o, o1), Anthropic (Claude), Google (Gemini)
-- **Smart Context** - 800-character snippets from each source for comprehensive answers
+- **Token-Optimized Context** - Tiered snippet strategy saves ~47% tokens while keeping all 50 sources
+- **Rich Formatting** - Syntax-highlighted code blocks, tables, lists, and blockquotes
 - **Source Citations** - Every AI response includes clickable source references
-- **Model Selection** - Choose your preferred model for each AI provider
+- **Copy Code Button** - One-click copy for code snippets with language labels
 
 ### Authentication & Security
 - **Google OAuth** - Secure login with Google accounts
@@ -138,6 +143,7 @@ Visit **http://localhost:3000** in your browser.
 - Radix UI - Accessible components
 - Lucide React - Icons
 - react-markdown - Markdown rendering
+- rehype-highlight - Syntax highlighting for code blocks
 
 ### Project Structure
 
@@ -228,9 +234,19 @@ The AI chat searches **ALL** 3,300+ articles and 298 podcast transcripts to find
 1. Your question is analyzed for keywords and phrases
 2. Every article and podcast is scored for relevance
 3. Top 50 most relevant sources are selected
-4. 800-character snippets are extracted from each source
-5. AI generates a response using this comprehensive context
+4. **Tiered snippets** are extracted to optimize token usage:
+   - **Tier 1** (Top 10): 800-char snippets for highest relevance
+   - **Tier 2** (Next 15): 400-char snippets for good coverage
+   - **Tier 3** (Last 25): 150-char snippets for breadth
+5. AI generates a response with rich markdown formatting
 6. Sources are cited for verification
+
+### Chat Features
+- **Syntax Highlighting** - Code blocks with language detection and GitHub Dark theme
+- **Copy Button** - One-click copy for code snippets
+- **Tables** - Formatted comparison tables
+- **Blockquotes** - Styled quotes from sources
+- **Lists** - Bullet and numbered lists with proper spacing
 
 ### Usage
 
