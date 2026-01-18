@@ -187,7 +187,10 @@ function HomePage() {
                 <Menu className="h-5 w-5" />
               </button>
 
-              <h1 className="text-xl font-semibold tracking-tight">ProductSnap</h1>
+              <div className="flex items-center gap-2">
+                <img src="/logo128.png" alt="ProductSnap" className="h-8 w-8" />
+                <h1 className="text-xl font-semibold tracking-tight">ProductSnap</h1>
+              </div>
 
               <nav className="hidden md:flex items-center gap-1">
                 {[
