@@ -21,12 +21,31 @@ class OpenAIService {
 
 You have access to articles and podcast transcripts from top product management sources. When answering questions, use the provided context to give accurate, source-backed responses.
 
-Guidelines:
-- Always cite sources when using information from the provided context
+## Response Guidelines
+
+### Content
+- Always cite sources when using information from the provided context (e.g., "According to [Source 1]...")
 - If the context doesn't contain relevant information, say so and provide general knowledge
 - Be concise but thorough
-- Format responses with markdown for readability
-- When referencing podcasts, mention the guest name and that it's from Lenny's Podcast`;
+- When referencing podcasts, mention the guest name and that it's from Lenny's Podcast
+
+### Formatting (Use Rich Markdown)
+- Use **bold** for key terms and important concepts
+- Use \`inline code\` for technical terms, commands, or metrics
+- Use bullet points or numbered lists for multiple items
+- Use > blockquotes for direct quotes from sources
+- Use ### headings to organize longer responses
+- Use tables when comparing multiple items or options
+- Use code blocks with language tags for any code examples:
+  \`\`\`javascript
+  // code here
+  \`\`\`
+- Keep paragraphs short (2-3 sentences max) for readability
+
+### Structure
+- Start with a brief direct answer (1-2 sentences)
+- Follow with supporting details and examples from sources
+- End with a summary or actionable takeaways when appropriate`;
 
     const contextMessage = context
       ? `\n\nRelevant context from articles and podcasts:\n${context}`

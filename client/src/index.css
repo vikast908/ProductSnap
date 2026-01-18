@@ -334,3 +334,111 @@
 .focus-ring {
   @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
 }
+
+/* Chat markdown styling */
+.chat-markdown {
+  @apply text-sm leading-relaxed;
+}
+
+.chat-markdown > *:first-child {
+  @apply mt-0;
+}
+
+.chat-markdown > *:last-child {
+  @apply mb-0;
+}
+
+/* Override highlight.js theme for light mode */
+:root .chat-markdown pre {
+  @apply bg-[#0d1117] text-[#c9d1d9];
+}
+
+:root .chat-markdown pre code {
+  @apply text-[#c9d1d9];
+}
+
+/* Syntax highlighting adjustments */
+.chat-markdown .hljs-keyword,
+.chat-markdown .hljs-selector-tag,
+.chat-markdown .hljs-title,
+.chat-markdown .hljs-section,
+.chat-markdown .hljs-doctag,
+.chat-markdown .hljs-name,
+.chat-markdown .hljs-strong {
+  color: #ff7b72;
+}
+
+.chat-markdown .hljs-string,
+.chat-markdown .hljs-title.class_,
+.chat-markdown .hljs-title.class_.inherited__,
+.chat-markdown .hljs-title.function_ {
+  color: #a5d6ff;
+}
+
+.chat-markdown .hljs-attr,
+.chat-markdown .hljs-attribute,
+.chat-markdown .hljs-template-tag,
+.chat-markdown .hljs-template-variable,
+.chat-markdown .hljs-addition,
+.chat-markdown .hljs-link,
+.chat-markdown .hljs-selector-attr,
+.chat-markdown .hljs-selector-pseudo {
+  color: #7ee787;
+}
+
+.chat-markdown .hljs-comment,
+.chat-markdown .hljs-quote {
+  color: #8b949e;
+  font-style: italic;
+}
+
+.chat-markdown .hljs-number,
+.chat-markdown .hljs-literal,
+.chat-markdown .hljs-bullet {
+  color: #79c0ff;
+}
+
+.chat-markdown .hljs-meta,
+.chat-markdown .hljs-meta .hljs-keyword {
+  color: #ffa657;
+}
+
+.chat-markdown .hljs-deletion {
+  color: #ffa198;
+  background-color: rgba(255, 129, 130, 0.15);
+}
+
+.chat-markdown .hljs-addition {
+  color: #7ee787;
+  background-color: rgba(63, 185, 80, 0.15);
+}
+
+/* Task list styling in chat */
+.chat-markdown input[type="checkbox"] {
+  @apply mr-2 rounded border-border;
+}
+
+/* Better table hover */
+.chat-markdown table tr:hover td {
+  @apply bg-muted/50;
+}
+
+/* Scrollable code blocks */
+.chat-markdown pre {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* Better horizontal scrolling for code */
+.chat-markdown pre::-webkit-scrollbar {
+  height: 6px;
+}
+
+.chat-markdown pre::-webkit-scrollbar-thumb {
+  @apply bg-white/20 rounded-full;
+}
+
+/* Keyboard shortcut styling */
+.chat-markdown kbd {
+  @apply px-1.5 py-0.5 text-xs font-mono bg-muted border border-border rounded shadow-sm;
+}

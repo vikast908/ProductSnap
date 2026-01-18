@@ -135,6 +135,11 @@ function getRelevantSnippet(content, keywords, snippetLength = 500) {
 
 /**
  * Search articles and podcasts for relevant content
+ * Uses tiered snippet strategy to optimize token usage:
+ * - Tier 1 (top 10): Full 800-char snippets for best relevance
+ * - Tier 2 (next 15): Medium 400-char snippets for good coverage
+ * - Tier 3 (remaining 25): Brief 150-char snippets for breadth
+ *
  * @param {string} query - User query
  * @param {Object} db - LowDB instance
  * @param {Object} cache - Cache object containing transcripts
@@ -146,7 +151,12 @@ function searchContent(query, db, cache, options = {}) {
     maxResults = 50, // Search across ALL content, return top 50 most relevant
     includeArticles = true,
     includePodcasts = true,
-    snippetLength = 800 // Longer snippets for better context
+    // Tiered snippet lengths for token optimization
+    tier1Count = 10,  // Top results get full context
+    tier1Length = 800,
+    tier2Count = 15,  // Medium relevance get moderate context
+    tier2Length = 400,
+    tier3Length = 150  // Lower relevance get brief context
   } = options;
 
   const keywords = extractKeywords(query);
@@ -172,11 +182,7 @@ function searchContent(query, db, cache, options = {}) {
           url: article.link,
           pubDate: article.pubDate,
           score: totalScore,
-          snippet: getRelevantSnippet(
-            article.content || article.description || '',
-            keywords,
-            snippetLength
-          )
+          content: article.content || article.description || '' // Store full content for tiered extraction
         });
       }
     }
@@ -199,11 +205,7 @@ function searchContent(query, db, cache, options = {}) {
           guest: transcript.guest,
           source: "Lenny's Podcast",
           score: totalScore,
-          snippet: getRelevantSnippet(
-            transcript.content || '',
-            keywords,
-            snippetLength
-          )
+          content: transcript.content || '' // Store full content for tiered extraction
         });
       }
     }
@@ -212,25 +214,59 @@ function searchContent(query, db, cache, options = {}) {
   // Sort by relevance score
   results.sort((a, b) => b.score - a.score);
 
-  // Take top results
-  const topResults = results.slice(0, maxResults);
+  // Take top results and apply tiered snippets
+  const topResults = results.slice(0, maxResults).map((result, index) => {
+    let snippetLength;
+    let tier;
 
-  // Format context for AI
+    if (index < tier1Count) {
+      snippetLength = tier1Length;
+      tier = 1;
+    } else if (index < tier1Count + tier2Count) {
+      snippetLength = tier2Length;
+      tier = 2;
+    } else {
+      snippetLength = tier3Length;
+      tier = 3;
+    }
+
+    return {
+      ...result,
+      snippet: getRelevantSnippet(result.content, keywords, snippetLength),
+      tier,
+      content: undefined // Remove full content from result to save memory
+    };
+  });
+
+  // Format context for AI with tiered approach
   const contextParts = topResults.map((result, index) => {
+    const tierLabel = result.tier === 1 ? '' : result.tier === 2 ? ' (summary)' : ' (brief)';
+
     if (result.type === 'article') {
-      return `[Source ${index + 1}: Article - "${result.title}" from ${result.source}]
+      return `[Source ${index + 1}: Article - "${result.title}" from ${result.source}${tierLabel}]
 ${result.snippet}`;
     } else {
-      return `[Source ${index + 1}: Lenny's Podcast with ${result.guest}]
+      return `[Source ${index + 1}: Lenny's Podcast with ${result.guest}${tierLabel}]
 ${result.snippet}`;
     }
   });
+
+  // Calculate approximate token savings
+  const fullTokens = maxResults * tier1Length / 4; // Rough estimate: 4 chars per token
+  const tieredTokens = (tier1Count * tier1Length + tier2Count * tier2Length + (maxResults - tier1Count - tier2Count) * tier3Length) / 4;
+  const tokenSavings = Math.round((1 - tieredTokens / fullTokens) * 100);
 
   return {
     results: topResults,
     context: contextParts.join('\n\n'),
     keywords,
-    totalFound: results.length
+    totalFound: results.length,
+    tokenOptimization: {
+      tier1Sources: tier1Count,
+      tier2Sources: tier2Count,
+      tier3Sources: maxResults - tier1Count - tier2Count,
+      estimatedTokenSavings: `${tokenSavings}%`
+    }
   };
 }
 
