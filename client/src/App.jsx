@@ -236,7 +236,7 @@ function HomePage() {
                   placeholder="Search..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-64 pl-9 h-9 bg-accent/50 border-0 focus-visible:ring-1"
+                  className="w-40 md:w-64 pl-9 h-9 bg-accent/50 border-0 focus-visible:ring-1"
                 />
                 {searchQuery && (
                   <button
@@ -278,7 +278,7 @@ function HomePage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex gap-6">
         {/* Sidebar */}
         <aside className={`
-          fixed lg:relative inset-y-0 left-0 z-40 w-64 bg-background lg:bg-transparent
+          fixed lg:relative inset-y-0 left-0 z-40 w-[85vw] max-w-[280px] sm:w-64 bg-background lg:bg-transparent
           transform transition-transform lg:transform-none
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           lg:block flex-shrink-0
@@ -539,7 +539,7 @@ function HomePage() {
                     <button
                       key={page}
                       onClick={() => setCurrentPage(page)}
-                      className={`w-9 h-9 text-sm font-medium rounded-lg transition-colors ${
+                      className={`w-10 h-10 sm:w-9 sm:h-9 text-sm font-medium rounded-lg transition-colors ${
                         currentPage === page
                           ? 'bg-foreground text-background'
                           : 'hover:bg-accent'

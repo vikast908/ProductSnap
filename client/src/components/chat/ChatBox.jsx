@@ -312,8 +312,10 @@ export function ChatBox({ isFloating = false, onClose }) {
 
   if (isFloating) {
     return (
-      <Card className={`fixed bottom-4 right-4 z-50 shadow-2xl flex flex-col ${
-        minimized ? 'w-[300px] h-auto' : 'w-[400px] h-[600px]'
+      <Card className={`fixed z-50 shadow-2xl flex flex-col ${
+        minimized
+          ? 'bottom-4 right-4 w-[280px] sm:w-[300px] h-auto'
+          : 'bottom-0 right-0 sm:bottom-4 sm:right-4 w-full sm:w-[400px] h-[100dvh] sm:h-[600px] rounded-none sm:rounded-xl'
       }`}>
         {content}
       </Card>

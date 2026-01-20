@@ -87,7 +87,7 @@ export function AnalyticsPage() {
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <Card className="p-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center">
@@ -138,7 +138,7 @@ export function AnalyticsPage() {
         </div>
 
         {/* Secondary Stats */}
-        <div className="grid grid-cols-2 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
           <Card className="p-4">
             <div className="flex items-center gap-3">
               <Bookmark className="h-5 w-5 text-muted-foreground" />
@@ -218,7 +218,7 @@ export function AnalyticsPage() {
               </h2>
 
               {/* System Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                 <Card className="p-4">
                   <p className="text-2xl font-bold">{analytics.admin.totalUsers}</p>
                   <p className="text-xs text-muted-foreground">Total Users</p>
