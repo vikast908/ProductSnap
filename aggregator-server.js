@@ -315,12 +315,6 @@ app.use(passport.session());
 const PM_FEEDS = [
   // ===== CORE PM PUBLICATIONS & COMMUNITIES =====
   {
-    name: 'Mind the Product',
-    url: 'https://www.mindtheproduct.com/feed/',
-    category: 'Product Management',
-    description: 'Leading PM community'
-  },
-  {
     name: 'Product Coalition',
     url: 'https://productcoalition.com/feed',
     category: 'Product Management',
@@ -355,12 +349,6 @@ const PM_FEEDS = [
     url: 'https://medium.com/feed/the-product-manager',
     category: 'Product Management',
     description: 'PM publication on Medium'
-  },
-  {
-    name: 'Department of Product',
-    url: 'https://www.departmentofproduct.com/blog?format=rss',
-    category: 'Product Management',
-    description: 'PM training and insights'
   },
 
   // ===== PM THOUGHT LEADERS & PERSONAL BLOGS =====
@@ -397,34 +385,10 @@ const PM_FEEDS = [
     description: 'Spotify tech & product'
   },
   {
-    name: 'Netflix Tech Blog',
-    url: 'https://netflixtechblog.com/feed',
-    category: 'Product Engineering',
-    description: 'Netflix innovation'
-  },
-  {
     name: 'Slack Engineering',
     url: 'https://slack.engineering/feed/',
     category: 'Product Engineering',
     description: 'Slack product & tech'
-  },
-  {
-    name: 'Dropbox Design',
-    url: 'https://dropbox.design/feed',
-    category: 'Product Design',
-    description: 'Dropbox design insights'
-  },
-  {
-    name: 'Asana Blog',
-    url: 'https://blog.asana.com/feed/',
-    category: 'Product Management',
-    description: 'Work management insights'
-  },
-  {
-    name: 'Atlassian Blog',
-    url: 'https://www.atlassian.com/blog/feed',
-    category: 'Product Management',
-    description: 'Team collaboration tools'
   },
 
   // ===== DESIGN & UX =====
@@ -466,26 +430,8 @@ const PM_FEEDS = [
   },
 
   // ===== PRODUCT ANALYTICS & DATA =====
-  {
-    name: 'Amplitude Blog',
-    url: 'https://amplitude.com/blog/feed',
-    category: 'Product Analytics',
-    description: 'Product analytics platform'
-  },
-  {
-    name: 'Heap Blog',
-    url: 'https://heap.io/blog/feed',
-    category: 'Product Analytics',
-    description: 'Digital analytics'
-  },
 
   // ===== GROWTH & MARKETING =====
-  {
-    name: 'Reforge Blog',
-    url: 'https://www.reforge.com/blog/feed',
-    category: 'Product Growth',
-    description: 'Growth insights'
-  },
   {
     name: 'Growth Hackers',
     url: 'https://growthhackers.com/feed',
@@ -521,12 +467,6 @@ const PM_FEEDS = [
 
   // ===== AGGREGATORS & NEWS =====
   {
-    name: 'Product Hunt Blog',
-    url: 'https://blog.producthunt.com/feed',
-    category: 'Product Discovery',
-    description: 'New product launches'
-  },
-  {
     name: 'HackerNoon Product Management',
     url: 'https://hackernoon.com/tagged/product-management/feed',
     category: 'Product Management',
@@ -543,12 +483,6 @@ const PM_FEEDS = [
     url: 'https://dev.to/feed/tag/product',
     category: 'Product Management',
     description: 'Developer community'
-  },
-  {
-    name: 'Product Manager HQ',
-    url: 'https://www.productmanagerhq.com/feed/',
-    category: 'Product Management',
-    description: 'PM resources'
   },
 
   // ===== MEDIUM PUBLICATIONS =====
@@ -577,12 +511,6 @@ const PM_FEEDS = [
     description: 'UX design community'
   },
   {
-    name: 'Bootcamp',
-    url: 'https://bootcamp.uxdesign.cc/feed',
-    category: 'Product Design',
-    description: 'Design bootcamp'
-  },
-  {
     name: 'Muzli Design',
     url: 'https://medium.muz.li/feed',
     category: 'Product Design',
@@ -590,12 +518,6 @@ const PM_FEEDS = [
   },
 
   // ===== INTERNATIONAL & DIVERSE VOICES =====
-  {
-    name: 'ProductPlan Blog',
-    url: 'https://www.productplan.com/blog/feed/',
-    category: 'Product Management',
-    description: 'Roadmap software insights'
-  },
   {
     name: 'Aha! Blog',
     url: 'https://www.aha.io/blog/feed',
