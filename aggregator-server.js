@@ -43,8 +43,51 @@ const parser = new RSSParser({
   }
 });
 
-// Database setup
+// Database setup with corruption recovery
 const dbPath = path.join(__dirname, 'content-aggregator.json');
+
+// Check if database file exists and is valid JSON before loading
+function initializeDatabaseFile() {
+  const defaultDb = JSON.stringify({
+    feeds: [],
+    articles: [],
+    users: [],
+    metadata: {
+      created: new Date().toISOString(),
+      lastUpdate: new Date().toISOString()
+    }
+  }, null, 2);
+
+  if (!fs.existsSync(dbPath)) {
+    console.log('Database file not found, creating new one...');
+    fs.writeFileSync(dbPath, defaultDb);
+    return;
+  }
+
+  // Check if file is valid JSON
+  try {
+    const content = fs.readFileSync(dbPath, 'utf-8');
+    if (!content || content.trim() === '') {
+      console.log('Database file is empty, initializing with defaults...');
+      fs.writeFileSync(dbPath, defaultDb);
+      return;
+    }
+    JSON.parse(content); // Validate JSON
+  } catch (e) {
+    console.error('Database file is corrupted, creating backup and reinitializing...');
+    // Backup corrupted file
+    const backupPath = dbPath + '.corrupted.' + Date.now();
+    try {
+      fs.copyFileSync(dbPath, backupPath);
+      console.log(`Corrupted file backed up to: ${backupPath}`);
+    } catch (backupErr) {
+      console.log('Could not backup corrupted file');
+    }
+    fs.writeFileSync(dbPath, defaultDb);
+  }
+}
+
+initializeDatabaseFile();
 const adapter = new FileSync(dbPath);
 const db = low(adapter);
 
