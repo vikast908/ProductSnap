@@ -4,8 +4,43 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   X, ExternalLink, ChevronLeft, ChevronRight,
-  Type, Clock, User, Globe
+  Type, Clock, User, Globe, AlertCircle, Archive, FileText
 } from 'lucide-react'
+
+// Error code to user-friendly title mapping
+const ERROR_TITLES = {
+  TIMEOUT: 'Website Took Too Long',
+  ACCESS_DENIED: 'Access Restricted',
+  NOT_FOUND: 'Article Not Found',
+  RATE_LIMITED: 'Too Many Requests',
+  SITE_ERROR: 'Website Unavailable',
+  FETCH_FAILED: 'Connection Failed',
+  PARSE_FAILED: 'Content Extraction Failed',
+  INSUFFICIENT_CONTENT: 'Limited Content Available',
+  UNKNOWN_ERROR: 'Something Went Wrong'
+}
+
+// Alternative reading services (free, no API key needed)
+const getAlternativeLinks = (url) => {
+  const encoded = encodeURIComponent(url)
+  return [
+    {
+      name: 'Archive.today',
+      url: `https://archive.today/?run=1&url=${encoded}`,
+      description: 'View cached version'
+    },
+    {
+      name: '12ft Ladder',
+      url: `https://12ft.io/${url}`,
+      description: 'Try to bypass paywall'
+    },
+    {
+      name: 'Google Cache',
+      url: `https://webcache.googleusercontent.com/search?q=cache:${encoded}`,
+      description: 'View Google\'s cached copy'
+    }
+  ]
+}
 
 const FONT_SIZES = ['base', 'lg', 'xl']
 
@@ -20,6 +55,7 @@ export function ArticleReader({
   const [content, setContent] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [errorDetails, setErrorDetails] = useState(null)
   const [fontSize, setFontSize] = useState('lg')
 
   // Fetch article content
@@ -31,6 +67,7 @@ export function ArticleReader({
     const fetchContent = async () => {
       setLoading(true)
       setError(null)
+      setErrorDetails(null)
 
       try {
         const response = await fetch(
@@ -38,13 +75,27 @@ export function ArticleReader({
           { signal: abortController.signal }
         )
 
-        if (!response.ok) throw new Error('Failed to extract article content')
-
         const data = await response.json()
+
+        if (!response.ok) {
+          setError(data.error || 'Failed to extract article content')
+          setErrorDetails({
+            errorCode: data.errorCode || 'UNKNOWN_ERROR',
+            canUseAlternative: data.canUseAlternative ?? true,
+            siteInfo: data.siteInfo || null
+          })
+          return
+        }
+
         setContent(data)
       } catch (err) {
         if (err.name === 'AbortError') return
-        setError(err.message)
+        setError('Unable to connect to the server. Please check your connection.')
+        setErrorDetails({
+          errorCode: 'NETWORK_ERROR',
+          canUseAlternative: true,
+          siteInfo: null
+        })
       } finally {
         if (!abortController.signal.aborted) setLoading(false)
       }
@@ -206,13 +257,72 @@ export function ArticleReader({
 
             {/* Error */}
             {error && (
-              <div className="text-center py-20">
-                <p className="text-destructive mb-2">Failed to load article</p>
-                <p className="text-muted-foreground text-sm mb-6">{error}</p>
-                <Button onClick={() => window.open(article.link, '_blank')}>
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Open Original
-                </Button>
+              <div className="py-12">
+                {/* Error Header */}
+                <div className="flex flex-col items-center mb-8">
+                  <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+                    <AlertCircle className="h-8 w-8 text-destructive" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-destructive mb-2">
+                    {ERROR_TITLES[errorDetails?.errorCode] || 'Failed to Load Article'}
+                  </h3>
+                  <p className="text-muted-foreground text-center max-w-md">
+                    {error}
+                  </p>
+                </div>
+
+                {/* Primary Action */}
+                <div className="flex justify-center mb-8">
+                  <Button
+                    size="lg"
+                    onClick={() => window.open(article.link, '_blank')}
+                    className="gap-2"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Open Original Article
+                  </Button>
+                </div>
+
+                {/* Alternative Reading Options */}
+                {errorDetails?.canUseAlternative && (
+                  <div className="border-t border-border pt-8">
+                    <h4 className="text-sm font-medium text-center text-muted-foreground mb-4">
+                      Try reading on a different site
+                    </h4>
+                    <div className="flex flex-wrap justify-center gap-3">
+                      {getAlternativeLinks(article.link).map((alt) => (
+                        <Button
+                          key={alt.name}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(alt.url, '_blank')}
+                          className="gap-2"
+                          title={alt.description}
+                        >
+                          {alt.name === 'Archive.today' && <Archive className="h-4 w-4" />}
+                          {alt.name === '12ft Ladder' && <FileText className="h-4 w-4" />}
+                          {alt.name === 'Google Cache' && <Globe className="h-4 w-4" />}
+                          {alt.name}
+                        </Button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground text-center mt-4">
+                      These services may help bypass paywalls or show cached versions of the article.
+                    </p>
+                  </div>
+                )}
+
+                {/* Explanation for specific site issues */}
+                {errorDetails?.siteInfo && (
+                  <div className="mt-6 p-4 bg-muted/50 rounded-lg text-center">
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-medium">Why this happens:</span>{' '}
+                      {errorDetails.siteInfo.reason === 'paywall' && 'This site uses a paywall to restrict access to content.'}
+                      {errorDetails.siteInfo.reason === 'auth_required' && 'This site requires you to be logged in to view content.'}
+                      {errorDetails.siteInfo.reason === 'javascript_required' && 'This site requires JavaScript to display content, which our reader cannot process.'}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 

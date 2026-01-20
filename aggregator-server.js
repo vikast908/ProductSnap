@@ -2755,33 +2755,204 @@ function isValidExternalUrl(urlString) {
 }
 
 // Extract full article content using Readability
+// Site-specific extraction issues
+const PROBLEMATIC_SITES = {
+  'medium.com': {
+    reason: 'paywall',
+    message: 'Medium articles often require a subscription or have limited free views.',
+    canUseAlternative: true
+  },
+  'uxplanet.org': {
+    reason: 'paywall',
+    message: 'UX Planet (Medium) articles may require a subscription.',
+    canUseAlternative: true
+  },
+  'towardsdatascience.com': {
+    reason: 'paywall',
+    message: 'Towards Data Science (Medium) articles may require a subscription.',
+    canUseAlternative: true
+  },
+  'levelup.gitconnected.com': {
+    reason: 'paywall',
+    message: 'Level Up Coding (Medium) articles may require a subscription.',
+    canUseAlternative: true
+  },
+  'betterprogramming.pub': {
+    reason: 'paywall',
+    message: 'Better Programming (Medium) articles may require a subscription.',
+    canUseAlternative: true
+  },
+  'techinasia.com': {
+    reason: 'paywall',
+    message: 'Tech in Asia articles are behind a paywall.',
+    canUseAlternative: true
+  },
+  'bloomberg.com': {
+    reason: 'paywall',
+    message: 'Bloomberg articles require a subscription.',
+    canUseAlternative: true
+  },
+  'wsj.com': {
+    reason: 'paywall',
+    message: 'Wall Street Journal articles require a subscription.',
+    canUseAlternative: true
+  },
+  'nytimes.com': {
+    reason: 'paywall',
+    message: 'New York Times articles require a subscription.',
+    canUseAlternative: true
+  },
+  'ft.com': {
+    reason: 'paywall',
+    message: 'Financial Times articles require a subscription.',
+    canUseAlternative: true
+  },
+  'hbr.org': {
+    reason: 'paywall',
+    message: 'Harvard Business Review articles may require a subscription.',
+    canUseAlternative: true
+  },
+  'linkedin.com': {
+    reason: 'auth_required',
+    message: 'LinkedIn content requires login to view.',
+    canUseAlternative: false
+  },
+  'twitter.com': {
+    reason: 'javascript_required',
+    message: 'Twitter/X content requires JavaScript to render.',
+    canUseAlternative: false
+  },
+  'x.com': {
+    reason: 'javascript_required',
+    message: 'Twitter/X content requires JavaScript to render.',
+    canUseAlternative: false
+  },
+  'instagram.com': {
+    reason: 'auth_required',
+    message: 'Instagram content requires login to view.',
+    canUseAlternative: false
+  },
+  'facebook.com': {
+    reason: 'auth_required',
+    message: 'Facebook content requires login to view.',
+    canUseAlternative: false
+  }
+};
+
+function getProblematicSiteInfo(url) {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    // Check exact match first, then try without www.
+    for (const [site, info] of Object.entries(PROBLEMATIC_SITES)) {
+      if (hostname === site || hostname === `www.${site}` || hostname.endsWith(`.${site}`)) {
+        return { site, ...info };
+      }
+    }
+    // Check if it's a Medium subdomain
+    if (hostname.endsWith('.medium.com')) {
+      return {
+        site: hostname,
+        reason: 'paywall',
+        message: 'This Medium publication may require a subscription.',
+        canUseAlternative: true
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 app.get('/api/extract', async (req, res) => {
   try {
     const url = req.query.url;
 
     if (!url) {
-      return res.status(400).json({ error: 'URL parameter is required' });
+      return res.status(400).json({ error: 'URL parameter is required', errorCode: 'MISSING_URL' });
     }
 
     // SECURITY: Validate URL to prevent SSRF
     if (!isValidExternalUrl(url)) {
-      return res.status(400).json({ error: 'Invalid or blocked URL. Only public HTTP/HTTPS URLs are allowed.' });
+      return res.status(400).json({ error: 'Invalid or blocked URL. Only public HTTP/HTTPS URLs are allowed.', errorCode: 'INVALID_URL' });
     }
 
+    // Check for known problematic sites
+    const siteInfo = getProblematicSiteInfo(url);
+
     // Fetch the article HTML
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      },
-      timeout: 10000,
-      maxRedirects: 3, // Limit redirects
-      validateStatus: (status) => status >= 200 && status < 400 // Only accept success responses
-    });
+    let response;
+    try {
+      response = await axios.get(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Cache-Control': 'no-cache'
+        },
+        timeout: 15000,
+        maxRedirects: 5,
+        validateStatus: (status) => status >= 200 && status < 400
+      });
+    } catch (fetchErr) {
+      console.error('Error fetching article:', fetchErr.message);
+
+      // Provide specific error messages based on the error type
+      if (fetchErr.code === 'ECONNABORTED' || fetchErr.message.includes('timeout')) {
+        return res.status(504).json({
+          error: 'The website took too long to respond. It may be temporarily unavailable.',
+          errorCode: 'TIMEOUT',
+          canUseAlternative: true,
+          siteInfo
+        });
+      }
+
+      if (fetchErr.response) {
+        const status = fetchErr.response.status;
+        if (status === 403) {
+          return res.status(403).json({
+            error: siteInfo?.message || 'This website blocks automated access. The content may require a subscription or login.',
+            errorCode: 'ACCESS_DENIED',
+            canUseAlternative: true,
+            siteInfo
+          });
+        }
+        if (status === 404) {
+          return res.status(404).json({
+            error: 'The article was not found. It may have been removed or the URL is incorrect.',
+            errorCode: 'NOT_FOUND',
+            canUseAlternative: false
+          });
+        }
+        if (status === 429) {
+          return res.status(429).json({
+            error: 'Too many requests to this website. Please try again later.',
+            errorCode: 'RATE_LIMITED',
+            canUseAlternative: true,
+            siteInfo
+          });
+        }
+        if (status >= 500) {
+          return res.status(502).json({
+            error: 'The website is experiencing issues. Please try again later.',
+            errorCode: 'SITE_ERROR',
+            canUseAlternative: true,
+            siteInfo
+          });
+        }
+      }
+
+      return res.status(500).json({
+        error: siteInfo?.message || 'Unable to connect to the website. It may be temporarily unavailable.',
+        errorCode: 'FETCH_FAILED',
+        canUseAlternative: true,
+        siteInfo
+      });
+    }
 
     // SECURITY: Validate redirect URL if there was a redirect
     if (response.request?.res?.responseUrl) {
       if (!isValidExternalUrl(response.request.res.responseUrl)) {
-        return res.status(400).json({ error: 'Redirect to blocked URL detected' });
+        return res.status(400).json({ error: 'Redirect to blocked URL detected', errorCode: 'BLOCKED_REDIRECT' });
       }
     }
 
@@ -2791,7 +2962,23 @@ app.get('/api/extract', async (req, res) => {
     const article = reader.parse();
 
     if (!article) {
-      return res.status(500).json({ error: 'Failed to extract article content' });
+      // Readability couldn't parse the content
+      return res.status(422).json({
+        error: siteInfo?.message || 'Could not extract article content. The page may require JavaScript, have a paywall, or use an unsupported format.',
+        errorCode: 'PARSE_FAILED',
+        canUseAlternative: siteInfo?.canUseAlternative ?? true,
+        siteInfo
+      });
+    }
+
+    // Check if we got very little content (likely a paywall or login page)
+    if (article.textContent && article.textContent.trim().length < 200) {
+      return res.status(422).json({
+        error: siteInfo?.message || 'The extracted content is too short. The article may be behind a paywall or require login.',
+        errorCode: 'INSUFFICIENT_CONTENT',
+        canUseAlternative: true,
+        siteInfo
+      });
     }
 
     res.json({
@@ -2805,8 +2992,11 @@ app.get('/api/extract', async (req, res) => {
     });
   } catch (err) {
     console.error('Error extracting article:', err.message);
-    // SECURITY: Don't leak internal error details
-    res.status(500).json({ error: 'Failed to extract article content' });
+    res.status(500).json({
+      error: 'An unexpected error occurred while extracting the article.',
+      errorCode: 'UNKNOWN_ERROR',
+      canUseAlternative: true
+    });
   }
 });
 
