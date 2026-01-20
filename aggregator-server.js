@@ -362,12 +362,6 @@ const PM_FEEDS = [
     category: 'Product Management',
     description: 'PM training and insights'
   },
-  {
-    name: 'Product Management Insider',
-    url: 'https://medium.com/feed/pminsider',
-    category: 'Product Management',
-    description: 'PM best practices'
-  },
 
   // ===== PM THOUGHT LEADERS & PERSONAL BLOGS =====
   {
@@ -575,12 +569,6 @@ const PM_FEEDS = [
     url: 'https://medium.com/feed/swlh',
     category: 'Product Management',
     description: 'Startup insights'
-  },
-  {
-    name: 'Product Management Insider',
-    url: 'https://medium.com/feed/product-management-insider',
-    category: 'Product Management',
-    description: 'PM best practices'
   },
   {
     name: 'UX Planet',
