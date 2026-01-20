@@ -327,12 +327,6 @@ const PM_FEEDS = [
     description: 'PM insights on Medium'
   },
   {
-    name: 'Product School Blog',
-    url: 'https://productschool.com/blog/feed/',
-    category: 'Product Management',
-    description: 'PM education platform'
-  },
-  {
     name: 'Silicon Valley Product Group',
     url: 'https://www.svpg.com/feed/',
     category: 'Product Management',
@@ -377,18 +371,6 @@ const PM_FEEDS = [
 
   // ===== PM THOUGHT LEADERS & PERSONAL BLOGS =====
   {
-    name: 'Ken Norton (Google PM)',
-    url: 'https://www.bringthedonuts.com/essays/rss/',
-    category: 'Product Management',
-    description: 'Former Google GV Partner'
-  },
-  {
-    name: 'Melissa Perri',
-    url: 'https://melissaperri.com/feed',
-    category: 'Product Management',
-    description: 'Product Institute founder'
-  },
-  {
     name: 'John Cutler',
     url: 'https://cutlefish.substack.com/feed',
     category: 'Product Management',
@@ -405,24 +387,6 @@ const PM_FEEDS = [
     url: 'https://medium.com/feed/@joulee',
     category: 'Product Leadership',
     description: 'Former Facebook VP Design'
-  },
-  {
-    name: 'Des Traynor (Intercom)',
-    url: 'https://destraynor.medium.com/feed',
-    category: 'Product Management',
-    description: 'Intercom co-founder'
-  },
-  {
-    name: 'Jason Cohen',
-    url: 'https://longform.asmartbear.com/feed/',
-    category: 'Product Strategy',
-    description: 'WP Engine founder'
-  },
-  {
-    name: 'April Dunford',
-    url: 'https://aprildunford.com/feed/',
-    category: 'Product Positioning',
-    description: 'Positioning expert'
   },
 
   // ===== TECH COMPANY PM BLOGS =====
@@ -451,12 +415,6 @@ const PM_FEEDS = [
     description: 'Slack product & tech'
   },
   {
-    name: 'Airbnb Design',
-    url: 'https://airbnb.design/feed/',
-    category: 'Product Design',
-    description: 'Airbnb design thinking'
-  },
-  {
     name: 'Dropbox Design',
     url: 'https://dropbox.design/feed',
     category: 'Product Design',
@@ -473,30 +431,6 @@ const PM_FEEDS = [
     url: 'https://www.atlassian.com/blog/feed',
     category: 'Product Management',
     description: 'Team collaboration tools'
-  },
-  {
-    name: 'Notion Blog',
-    url: 'https://www.notion.so/blog/feed',
-    category: 'Product Management',
-    description: 'Workspace innovation'
-  },
-  {
-    name: 'Figma Blog',
-    url: 'https://www.figma.com/blog/feed/',
-    category: 'Product Design',
-    description: 'Design tool insights'
-  },
-  {
-    name: 'Linear Blog',
-    url: 'https://linear.app/blog/feed',
-    category: 'Product Management',
-    description: 'Issue tracking for builders'
-  },
-  {
-    name: 'Miro Blog',
-    url: 'https://miro.com/blog/feed/',
-    category: 'Product Collaboration',
-    description: 'Visual collaboration'
   },
 
   // ===== DESIGN & UX =====
@@ -545,28 +479,10 @@ const PM_FEEDS = [
     description: 'Product analytics platform'
   },
   {
-    name: 'Mixpanel Blog',
-    url: 'https://mixpanel.com/blog/feed/',
-    category: 'Product Analytics',
-    description: 'User analytics insights'
-  },
-  {
-    name: 'Segment Blog',
-    url: 'https://segment.com/blog/feed/',
-    category: 'Product Analytics',
-    description: 'Customer data platform'
-  },
-  {
     name: 'Heap Blog',
     url: 'https://heap.io/blog/feed',
     category: 'Product Analytics',
     description: 'Digital analytics'
-  },
-  {
-    name: 'PostHog Blog',
-    url: 'https://posthog.com/blog/rss.xml',
-    category: 'Product Analytics',
-    description: 'Open-source product analytics'
   },
 
   // ===== GROWTH & MARKETING =====
@@ -589,12 +505,6 @@ const PM_FEEDS = [
     description: 'a16z growth insights'
   },
   {
-    name: 'Brian Balfour',
-    url: 'https://brianbalfour.com/feed',
-    category: 'Product Growth',
-    description: 'Reforge founder'
-  },
-  {
     name: 'Elena Verna',
     url: 'https://elenaverna.substack.com/feed',
     category: 'Product Growth',
@@ -609,34 +519,10 @@ const PM_FEEDS = [
     description: 'Ben Thompson\'s analysis'
   },
   {
-    name: 'First Round Review',
-    url: 'https://review.firstround.com/feed',
-    category: 'Product Management',
-    description: 'Startup insights'
-  },
-  {
-    name: 'a16z',
-    url: 'https://a16z.com/feed/',
-    category: 'Product Strategy',
-    description: 'Andreessen Horowitz'
-  },
-  {
     name: 'Y Combinator',
     url: 'https://www.ycombinator.com/blog/feed',
     category: 'Product Strategy',
     description: 'Startup accelerator insights'
-  },
-  {
-    name: 'NFX',
-    url: 'https://www.nfx.com/feed',
-    category: 'Product Strategy',
-    description: 'Network effects VC'
-  },
-  {
-    name: 'Bessemer Cloud',
-    url: 'https://www.bvp.com/atlas/feed',
-    category: 'Product Strategy',
-    description: 'Cloud insights'
   },
 
   // ===== AGGREGATORS & NEWS =====
@@ -717,12 +603,6 @@ const PM_FEEDS = [
 
   // ===== INTERNATIONAL & DIVERSE VOICES =====
   {
-    name: 'Product Management Festival',
-    url: 'https://productmanagementfestival.com/blog/feed/',
-    category: 'Product Management',
-    description: 'Global PM events'
-  },
-  {
     name: 'ProductPlan Blog',
     url: 'https://www.productplan.com/blog/feed/',
     category: 'Product Management',
@@ -733,24 +613,6 @@ const PM_FEEDS = [
     url: 'https://www.aha.io/blog/feed',
     category: 'Product Management',
     description: 'Roadmap & strategy'
-  },
-  {
-    name: 'Pendo Blog',
-    url: 'https://www.pendo.io/blog/feed/',
-    category: 'Product Management',
-    description: 'Product experience platform'
-  },
-  {
-    name: 'UserTesting Blog',
-    url: 'https://www.usertesting.com/blog/feed',
-    category: 'UX Research',
-    description: 'User research insights'
-  },
-  {
-    name: 'Hotjar Blog',
-    url: 'https://www.hotjar.com/blog/feed/',
-    category: 'UX Research',
-    description: 'User behavior insights'
   },
   {
     name: 'Optimizely Blog',
@@ -787,12 +649,6 @@ const PM_FEEDS = [
     description: 'AI product insights'
   },
   {
-    name: 'Google AI Blog',
-    url: 'http://ai.googleblog.com/feeds/posts/default',
-    category: 'Product Innovation',
-    description: 'Google AI research'
-  },
-  {
     name: 'Microsoft Research',
     url: 'https://www.microsoft.com/en-us/research/feed/',
     category: 'Product Innovation',
@@ -800,18 +656,6 @@ const PM_FEEDS = [
   },
 
   // ===== PRODUCT OPS & ENABLEMENT =====
-  {
-    name: 'Product-Led Alliance',
-    url: 'https://www.productledalliance.com/blog-feed.xml',
-    category: 'Product Operations',
-    description: 'Product-led growth'
-  },
-  {
-    name: 'ProductOps',
-    url: 'https://www.productops.com/blog-feed.xml',
-    category: 'Product Operations',
-    description: 'Product operations'
-  },
 
   // ===== MORE PM THOUGHT LEADERS =====
   {
@@ -825,12 +669,6 @@ const PM_FEEDS = [
     url: 'https://www.nirandfar.com/feed/',
     category: 'Product Strategy',
     description: 'Behavioral design, author of Hooked'
-  },
-  {
-    name: 'Dan Olsen',
-    url: 'https://www.product-frameworks.com/feed',
-    category: 'Product Management',
-    description: 'Lean Product Playbook author'
   },
   {
     name: 'Jeff Gothelf',
@@ -857,12 +695,6 @@ const PM_FEEDS = [
     description: 'Benchmark Capital partner'
   },
   {
-    name: 'C Todd Lombardo',
-    url: 'https://ctoddinlombardo.medium.com/feed',
-    category: 'Product Management',
-    description: 'Product Roadmaps Relaunched author'
-  },
-  {
     name: 'Jackie Bavaro',
     url: 'https://jackiebavaro.substack.com/feed',
     category: 'Product Management',
@@ -880,12 +712,6 @@ const PM_FEEDS = [
     category: 'Product Management',
     description: 'Evidence-guided product management'
   },
-  {
-    name: 'Hope Gurion',
-    url: 'https://www.hopegurion.com/feed',
-    category: 'Product Operations',
-    description: 'Product Ops pioneer'
-  },
 
   // ===== INTERNATIONAL PM VOICES =====
   {
@@ -894,26 +720,8 @@ const PM_FEEDS = [
     category: 'Product Management',
     description: 'Real-world PM stories'
   },
-  {
-    name: 'Product Coalition Europe',
-    url: 'https://productcoalition.com/tagged/europe/feed',
-    category: 'Product Management',
-    description: 'European PM perspectives'
-  },
-  {
-    name: 'ProductTank',
-    url: 'https://www.mindtheproduct.com/producttank/feed/',
-    category: 'Product Management',
-    description: 'Global PM meetup network'
-  },
 
   // ===== B2B & ENTERPRISE PRODUCT =====
-  {
-    name: 'Product-Led Institute',
-    url: 'https://www.productled.com/blog/feed',
-    category: 'Product-Led Growth',
-    description: 'PLG strategies'
-  },
   {
     name: 'OpenView Partners',
     url: 'https://openviewpartners.com/blog/feed/',
@@ -921,31 +729,13 @@ const PM_FEEDS = [
     description: 'B2B SaaS insights'
   },
   {
-    name: 'SaaS Capital',
-    url: 'https://www.saas-capital.com/blog-feed/',
-    category: 'Product Strategy',
-    description: 'SaaS metrics & strategy'
-  },
-  {
     name: 'ChartMogul Blog',
     url: 'https://chartmogul.com/blog/feed/',
     category: 'Product Analytics',
     description: 'SaaS analytics & metrics'
   },
-  {
-    name: 'ProfitWell Blog',
-    url: 'https://www.profitwell.com/recur/feed',
-    category: 'Product Strategy',
-    description: 'Subscription metrics'
-  },
 
   // ===== MOBILE & APP PRODUCT =====
-  {
-    name: 'App Annie Insights',
-    url: 'https://www.data.ai/en/insights/feed/',
-    category: 'Mobile Product',
-    description: 'Mobile app intelligence'
-  },
   {
     name: 'Mobile Growth Stack',
     url: 'https://www.mobilegrowthstack.com/feed/',
@@ -980,18 +770,6 @@ const PM_FEEDS = [
   },
 
   // ===== SECURITY & PRIVACY IN PRODUCT =====
-  {
-    name: 'OWASP',
-    url: 'https://owasp.org/www-community/feed.xml',
-    category: 'Product Security',
-    description: 'Web application security'
-  },
-  {
-    name: 'IAPP Privacy Blog',
-    url: 'https://iapp.org/news/feed/',
-    category: 'Product Privacy',
-    description: 'Privacy professionals'
-  },
 
   // ===== DEVELOPER EXPERIENCE =====
   {
@@ -1050,12 +828,6 @@ const PM_FEEDS = [
     category: 'Product News',
     description: 'Product management news'
   },
-  {
-    name: 'Wired Product',
-    url: 'https://www.wired.com/feed/tag/product-design/latest/rss',
-    category: 'Product Design',
-    description: 'Product design coverage'
-  },
 
   // ===== BEHAVIORAL SCIENCE & PSYCHOLOGY =====
   {
@@ -1073,42 +845,18 @@ const PM_FEEDS = [
 
   // ===== PRODUCT MARKETING =====
   {
-    name: 'Product Marketing Alliance',
-    url: 'https://www.productmarketingalliance.com/blog-feed.xml',
-    category: 'Product Marketing',
-    description: 'Product marketing insights'
-  },
-  {
     name: 'Drift Blog',
     url: 'https://www.drift.com/blog/feed/',
     category: 'Product Marketing',
     description: 'Conversational marketing'
   },
-  {
-    name: 'Wynter Blog',
-    url: 'https://wynter.com/blog/feed/',
-    category: 'Product Marketing',
-    description: 'B2B messaging research'
-  },
 
   // ===== CUSTOMER SUCCESS & SUPPORT =====
-  {
-    name: 'Gainsight Blog',
-    url: 'https://www.gainsight.com/blog/feed/',
-    category: 'Customer Success',
-    description: 'Customer success platform'
-  },
   {
     name: 'ChurnZero Blog',
     url: 'https://churnzero.net/blog/feed/',
     category: 'Customer Success',
     description: 'Customer retention'
-  },
-  {
-    name: 'Zendesk Blog',
-    url: 'https://www.zendesk.com/blog/feed/',
-    category: 'Customer Support',
-    description: 'Customer service insights'
   },
   {
     name: 'Intercom Support',
@@ -1118,12 +866,6 @@ const PM_FEEDS = [
   },
 
   // ===== PRODUCT LAUNCH & DISCOVERY =====
-  {
-    name: 'BetaList',
-    url: 'https://betalist.com/feed',
-    category: 'Product Launch',
-    description: 'Discover and get early access to tomorrow\'s startups'
-  },
   {
     name: 'Launching Next',
     url: 'https://www.launchingnext.com/rss/',
@@ -1221,12 +963,6 @@ const PM_FEEDS = [
     description: 'Tech news and analysis'
   },
   {
-    name: 'Product School Launches',
-    url: 'https://productschool.com/blog/category/product-launches/feed/',
-    category: 'Product Launch',
-    description: 'Product launch case studies'
-  },
-  {
     name: 'SaaStr',
     url: 'https://www.saastr.com/feed/',
     category: 'Product Launch',
@@ -1243,12 +979,6 @@ const PM_FEEDS = [
     url: 'https://www.angellist.com/blog/feed.xml',
     category: 'Product Launch',
     description: 'Startup ecosystem insights'
-  },
-  {
-    name: 'Seedtable',
-    url: 'https://www.seedtable.com/feed',
-    category: 'Product Launch',
-    description: 'European startup launches'
   },
   {
     name: 'EU-Startups',
@@ -1299,28 +1029,10 @@ const PM_FEEDS = [
     description: 'Pacific Northwest tech news'
   },
   {
-    name: 'Built In',
-    url: 'https://builtin.com/feed',
-    category: 'Product Launch',
-    description: 'Tech hub startup news'
-  },
-  {
     name: 'The Information',
     url: 'https://www.theinformation.com/feed',
     category: 'Product Launch',
     description: 'In-depth tech business news'
-  },
-  {
-    name: 'Protocol',
-    url: 'https://www.protocol.com/feeds/feed.rss',
-    category: 'Product Launch',
-    description: 'Tech industry news'
-  },
-  {
-    name: 'Recode',
-    url: 'https://www.vox.com/recode/rss/index.xml',
-    category: 'Product Launch',
-    description: 'Tech and media news'
   },
   {
     name: 'Benedict Evans',
@@ -1339,12 +1051,6 @@ const PM_FEEDS = [
     url: 'https://avc.com/feed/',
     category: 'Product Launch',
     description: 'VC insights on startups'
-  },
-  {
-    name: 'Tomasz Tunguz',
-    url: 'https://tomtunguz.com/feed/',
-    category: 'Product Launch',
-    description: 'SaaS and startup data analysis'
   },
   {
     name: 'Version One VC',
