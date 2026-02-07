@@ -518,12 +518,6 @@ const PM_FEEDS = [
     description: 'Roadmap & strategy'
   },
   {
-    name: 'Optimizely Blog',
-    url: 'https://www.optimizely.com/insights/blog/feed/',
-    category: 'Product Experimentation',
-    description: 'Experimentation platform'
-  },
-  {
     name: 'LaunchDarkly Blog',
     url: 'https://launchdarkly.com/blog/feed/',
     category: 'Product Engineering',
@@ -588,28 +582,7 @@ const PM_FEEDS = [
     description: 'Evidence-guided product management'
   },
 
-  // ===== INTERNATIONAL PM VOICES =====
-  {
-    name: 'Product Management IRL',
-    url: 'https://productmanagementirl.com/feed/',
-    category: 'Product Management',
-    description: 'Real-world PM stories'
-  },
-
-  // ===== B2B & ENTERPRISE PRODUCT =====
-  {
-    name: 'OpenView Partners',
-    url: 'https://openviewpartners.com/blog/feed/',
-    category: 'Product Strategy',
-    description: 'B2B SaaS insights'
-  },
   // ===== MOBILE & APP PRODUCT =====
-  {
-    name: 'Appcues Blog',
-    url: 'https://www.appcues.com/blog/feed',
-    category: 'Product Management',
-    description: 'User onboarding & adoption'
-  },
 
   // ===== PLATFORM & API PRODUCT =====
   {
@@ -657,12 +630,6 @@ const PM_FEEDS = [
     url: 'https://www.producthunt.com/feed',
     category: 'Product Discovery',
     description: 'Daily product launches'
-  },
-  {
-    name: 'Indie Hackers',
-    url: 'https://www.indiehackers.com/feed',
-    category: 'Product Management',
-    description: 'Indie product builders'
   },
   {
     name: 'Hacker News',
