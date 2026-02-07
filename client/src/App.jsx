@@ -1,11 +1,10 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Routes, Route, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { ArticlePreview } from '@/components/ArticlePreview'
 import { ArticleReader } from '@/components/ArticleReader'
 import { TranscriptViewer } from '@/components/TranscriptViewer'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
@@ -19,9 +18,9 @@ import { BookmarksPage } from '@/components/bookmarks/BookmarksPage'
 import { AnalyticsPage } from '@/components/analytics/AnalyticsPage'
 import { MyFilesPage } from '@/components/files/MyFilesPage'
 import {
-  Search, X, ExternalLink, Copy, Check, ChevronDown,
-  Mic, FileText, Clock, MessageSquare, BookOpen, Sun, Moon, Menu, ChevronRight,
-  Bookmark, BookmarkCheck, FolderOpen
+  Search, X, ExternalLink, Copy, Check,
+  Mic, FileText, MessageSquare, Sun, Moon, Menu, ChevronRight,
+  FolderOpen
 } from 'lucide-react'
 
 // Reading time estimator
@@ -48,11 +47,14 @@ const formatDate = (dateString) => {
 function HomePage() {
   const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
-  const [articles, setArticles] = useState([])
-  const [podcasts, setPodcasts] = useState([])
+  const [items, setItems] = useState([])
+  const [totalItems, setTotalItems] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const [stats, setStats] = useState({ totalArticles: 0, totalPodcasts: 0 })
   const [loading, setLoading] = useState(true)
   const [chatOpen, setChatOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [theme, setTheme] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('theme') || 'system'
@@ -86,75 +88,75 @@ function HomePage() {
     localStorage.setItem('theme', theme)
   }, [theme])
 
-  // Fetch data
+  // Debounce search input (300ms)
   useEffect(() => {
-    const fetchData = async () => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  // Fetch stats and categories once on mount
+  useEffect(() => {
+    const fetchInitial = async () => {
       try {
-        const [articlesRes, podcastsRes, categoriesRes] = await Promise.all([
-          fetch('/api/articles?page=1&limit=1000'),
-          fetch('/api/podcasts?page=1&limit=500'),
+        const [statsRes, categoriesRes] = await Promise.all([
+          fetch('/api/stats'),
           fetch('/api/categories')
         ])
-
-        const articlesData = await articlesRes.json()
-        const podcastsData = await podcastsRes.json()
+        const statsData = await statsRes.json()
         const categoriesData = await categoriesRes.json()
-
-        setArticles(articlesData.articles || [])
-        setPodcasts(podcastsData.podcasts || [])
+        setStats({ totalArticles: statsData.totalArticles || 0, totalPodcasts: statsData.totalPodcasts || 0 })
         setCategories(categoriesData || [])
-        setLoading(false)
       } catch (error) {
-        console.error('Error fetching data:', error)
-        setLoading(false)
+        console.error('Error fetching stats/categories:', error)
       }
     }
-    fetchData()
+    fetchInitial()
   }, [])
 
-  // Combined content
-  const allContent = useMemo(() => {
-    const podcastsWithType = podcasts.map(p => ({ ...p, type: 'podcast' }))
-    if (contentType === 'articles') return articles.filter(a => a.type !== 'podcast')
-    if (contentType === 'podcasts') return podcastsWithType
-    return [...articles.filter(a => a.type !== 'podcast'), ...podcastsWithType]
-  }, [articles, podcasts, contentType])
+  // Fetch paginated data from server
+  const fetchPage = useCallback(async (page, category, search, type) => {
+    setLoading(true)
+    try {
+      let url
+      if (type === 'podcasts') {
+        const params = new URLSearchParams({ page: String(page), limit: String(articlesPerPage) })
+        if (search) params.set('search', search)
+        url = `/api/podcasts?${params}`
+      } else {
+        const params = new URLSearchParams({ page: String(page), limit: String(articlesPerPage) })
+        if (type === 'all') params.set('includePodcasts', 'true')
+        if (type === 'articles') params.set('type', 'article')
+        if (category) params.set('category', category)
+        if (search) params.set('search', search)
+        url = `/api/articles?${params}`
+      }
 
-  // Filtered content
-  const filteredContent = useMemo(() => {
-    let result = allContent
+      const res = await fetch(url)
+      const data = await res.json()
 
-    if (selectedCategory) {
-      result = result.filter(item =>
-        item.category === selectedCategory ||
-        (item.type === 'podcast' && selectedCategory === "Lenny's Podcast")
-      )
+      const fetchedItems = data.articles || data.podcasts || []
+      setItems(fetchedItems)
+      setTotalItems(data.pagination?.total || 0)
+      setTotalPages(data.pagination?.pages || 0)
+    } catch (error) {
+      console.error('Error fetching data:', error)
+    } finally {
+      setLoading(false)
     }
+  }, [])
 
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase()
-      result = result.filter(item =>
-        item.title?.toLowerCase().includes(q) ||
-        item.description?.toLowerCase().includes(q) ||
-        item.guest?.toLowerCase().includes(q) ||
-        item.author?.toLowerCase().includes(q)
-      )
-    }
-
-    return result
-  }, [allContent, searchQuery, selectedCategory])
-
-  // Reset page on filter change
+  // Re-fetch when page, filters, or debounced search change
   useEffect(() => {
-    setCurrentPage(1)
-  }, [searchQuery, selectedCategory, contentType])
+    fetchPage(currentPage, selectedCategory, debouncedSearch, contentType)
+  }, [currentPage, selectedCategory, debouncedSearch, contentType, fetchPage])
 
-  // Pagination
-  const totalPages = Math.ceil(filteredContent.length / articlesPerPage)
-  const paginatedContent = filteredContent.slice(
-    (currentPage - 1) * articlesPerPage,
-    currentPage * articlesPerPage
-  )
+  // Reset to page 1 when filters change (but not when page changes)
+  const resetPage = useCallback((setter) => {
+    return (value) => {
+      setCurrentPage(1)
+      setter(value)
+    }
+  }, [])
 
   const copyLink = async (link) => {
     await navigator.clipboard.writeText(link)
@@ -166,7 +168,8 @@ function HomePage() {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark')
   }
 
-  if (loading) {
+  // Full-page spinner only on very first load (no items yet and loading)
+  if (loading && items.length === 0 && totalItems === 0) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -199,13 +202,13 @@ function HomePage() {
 
               <nav className="hidden md:flex items-center gap-1">
                 {[
-                  { id: 'all', label: 'All', count: articles.length + podcasts.length },
-                  { id: 'articles', label: 'Articles', count: articles.length },
-                  { id: 'podcasts', label: 'Podcasts', count: podcasts.length }
+                  { id: 'all', label: 'All', count: stats.totalArticles + stats.totalPodcasts },
+                  { id: 'articles', label: 'Articles', count: stats.totalArticles },
+                  { id: 'podcasts', label: 'Podcasts', count: stats.totalPodcasts }
                 ].map(tab => (
                   <button
                     key={tab.id}
-                    onClick={() => setContentType(tab.id)}
+                    onClick={() => resetPage(setContentType)(tab.id)}
                     className={`px-4 py-2 text-sm font-medium rounded-full transition-all ${
                       contentType === tab.id
                         ? 'bg-foreground text-background'
@@ -309,7 +312,7 @@ function HomePage() {
               {['all', 'articles', 'podcasts'].map(type => (
                 <button
                   key={type}
-                  onClick={() => setContentType(type)}
+                  onClick={() => resetPage(setContentType)(type)}
                   className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
                     contentType === type
                       ? 'bg-foreground text-background'
@@ -328,7 +331,7 @@ function HomePage() {
               </p>
 
               <button
-                onClick={() => setSelectedCategory(null)}
+                onClick={() => resetPage(setSelectedCategory)(null)}
                 className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg transition-colors ${
                   !selectedCategory
                     ? 'bg-accent font-medium'
@@ -336,7 +339,7 @@ function HomePage() {
                 }`}
               >
                 <span>All Categories</span>
-                <span className="text-xs">{articles.length + podcasts.length}</span>
+                <span className="text-xs">{stats.totalArticles + stats.totalPodcasts}</span>
               </button>
 
               <ScrollArea className="h-[calc(100vh-320px)]">
@@ -344,7 +347,7 @@ function HomePage() {
                   {categories.map(cat => (
                     <button
                       key={cat.category}
-                      onClick={() => setSelectedCategory(cat.category)}
+                      onClick={() => resetPage(setSelectedCategory)(cat.category)}
                       className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg transition-colors ${
                         selectedCategory === cat.category
                           ? 'bg-accent font-medium'
@@ -378,7 +381,7 @@ function HomePage() {
                 <Badge variant="secondary" className="gap-1.5 pr-1.5">
                   {selectedCategory}
                   <button
-                    onClick={() => setSelectedCategory(null)}
+                    onClick={() => resetPage(setSelectedCategory)(null)}
                     className="ml-1 hover:bg-background/50 rounded-full p-0.5"
                   >
                     <X className="h-3 w-3" />
@@ -386,13 +389,13 @@ function HomePage() {
                 </Badge>
               )}
               <p className="text-sm text-muted-foreground">
-                {filteredContent.length} {filteredContent.length === 1 ? 'result' : 'results'}
+                {totalItems} {totalItems === 1 ? 'result' : 'results'}
               </p>
             </div>
           </div>
 
           {/* Content Grid */}
-          {filteredContent.length === 0 ? (
+          {items.length === 0 && !loading ? (
             <div className="text-center py-20">
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-accent flex items-center justify-center">
                 <Search className="h-8 w-8 text-muted-foreground" />
@@ -406,6 +409,7 @@ function HomePage() {
                 onClick={() => {
                   setSearchQuery('')
                   setSelectedCategory(null)
+                  setCurrentPage(1)
                 }}
               >
                 Clear filters
@@ -413,7 +417,7 @@ function HomePage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {paginatedContent.map(item => (
+              {items.map(item => (
                 <Card
                   key={item.id}
                   className="group relative overflow-hidden border-0 bg-card hover:bg-accent/30 transition-all duration-200 cursor-pointer"
@@ -578,7 +582,7 @@ function HomePage() {
 
       {/* Article Reader */}
       {readerOpen && readerArticle && (() => {
-        const articlesList = paginatedContent.filter(a => a.type !== 'podcast')
+        const articlesList = items.filter(a => a.type !== 'podcast')
         const currentIndex = articlesList.findIndex(a => a.id === readerArticle.id)
 
         return (

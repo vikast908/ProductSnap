@@ -59,26 +59,41 @@ export function TranscriptViewer({ podcastId, onClose }) {
     return parsed
   }, [transcript?.content])
 
-  // Filter segments by search
+  // Escape special regex characters in user input
+  const escapeRegExp = useCallback((str) => {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }, [])
+
+  // Filter segments by search (word-boundary matching)
   const filteredSegments = useMemo(() => {
     if (!searchQuery) return segments
-    const query = searchQuery.toLowerCase()
-    return segments.filter(s =>
-      s.text.toLowerCase().includes(query) ||
-      s.speaker.toLowerCase().includes(query)
-    )
-  }, [segments, searchQuery])
+    try {
+      const pattern = `\\b${escapeRegExp(searchQuery)}\\b`
+      return segments.filter(s => {
+        const regex = new RegExp(pattern, 'gi')
+        return regex.test(s.text) || regex.test(s.speaker)
+      })
+    } catch {
+      return segments
+    }
+  }, [segments, searchQuery, escapeRegExp])
 
-  // Highlight search term
+  // Highlight search term (word-boundary matching)
   const highlightText = useCallback((text, query) => {
     if (!query) return text
-    const parts = text.split(new RegExp(`(${query})`, 'gi'))
-    return parts.map((part, i) =>
-      part.toLowerCase() === query.toLowerCase()
-        ? <mark key={i} className="bg-primary/20 text-primary px-0.5 rounded">{part}</mark>
-        : part
-    )
-  }, [])
+    try {
+      const escaped = escapeRegExp(query)
+      const parts = text.split(new RegExp(`(\\b${escaped}\\b)`, 'gi'))
+      const queryLower = query.toLowerCase()
+      return parts.map((part, i) =>
+        part.toLowerCase() === queryLower
+          ? <mark key={i} className="bg-primary/20 text-primary px-0.5 rounded">{part}</mark>
+          : part
+      )
+    } catch {
+      return text
+    }
+  }, [escapeRegExp])
 
   const copyTranscript = async () => {
     try {

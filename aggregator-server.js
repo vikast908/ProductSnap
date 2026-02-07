@@ -197,7 +197,19 @@ function invalidateCache() {
   cache.categories = null;
   cache.feeds = null;
   cache.stats = null;
+  cache.lastUpdate = null;
+}
+
+// Get cached articles with content stripped (saves ~30MB RAM)
+// Enforces TTL - cache expires after 60 seconds
+function getCachedArticles() {
+  if (cache.articles && cache.lastUpdate && (Date.now() - cache.lastUpdate < cache.TTL)) {
+    return cache.articles;
+  }
+  const articles = db.get('articles').value().map(({ content, ...meta }) => meta);
+  cache.articles = articles;
   cache.lastUpdate = Date.now();
+  return articles;
 }
 
 // Helper function for concurrent processing with limit (reduced for OneDrive compatibility)
@@ -222,7 +234,7 @@ async function processWithConcurrency(items, processor, concurrencyLimit = 3) {
 }
 
 // Safe database write with retry logic for OneDrive file locking
-function safeDbWrite(operation, maxRetries = 3) {
+async function safeDbWrite(operation, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       operation.write();
@@ -232,12 +244,8 @@ function safeDbWrite(operation, maxRetries = 3) {
         console.error(`Database write failed after ${maxRetries} attempts:`, err.message);
         return false;
       }
-      // Wait before retry (exponential backoff)
-      const delay = attempt * 200;
-      const start = Date.now();
-      while (Date.now() - start < delay) {
-        // Busy wait (sync)
-      }
+      // Non-blocking wait before retry (exponential backoff)
+      await new Promise(resolve => setTimeout(resolve, attempt * 200));
     }
   }
   return false;
@@ -254,12 +262,6 @@ const chatLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 30, // Limit each IP to 30 requests per minute for chat
   message: { error: 'Too many chat requests, please slow down' }
-});
-
-const generalLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 100, // Limit each IP to 100 requests per minute
-  message: { error: 'Too many requests, please slow down' }
 });
 
 // Security middleware
@@ -429,8 +431,6 @@ const PM_FEEDS = [
     description: 'Design & IA community'
   },
 
-  // ===== PRODUCT ANALYTICS & DATA =====
-
   // ===== GROWTH & MARKETING =====
   {
     name: 'Growth Hackers',
@@ -478,13 +478,6 @@ const PM_FEEDS = [
     category: 'Product Design',
     description: 'Design stories'
   },
-  {
-    name: 'Dev.to Product',
-    url: 'https://dev.to/feed/tag/product',
-    category: 'Product Management',
-    description: 'Developer community'
-  },
-
   // ===== MEDIUM PUBLICATIONS =====
   {
     name: 'Towards Data Science',
@@ -551,29 +544,7 @@ const PM_FEEDS = [
     description: 'Web accessibility'
   },
 
-  // ===== AI & EMERGING TECH IN PRODUCT =====
-  {
-    name: 'OpenAI Blog',
-    url: 'https://openai.com/blog/rss/',
-    category: 'Product Innovation',
-    description: 'AI product insights'
-  },
-  {
-    name: 'Microsoft Research',
-    url: 'https://www.microsoft.com/en-us/research/feed/',
-    category: 'Product Innovation',
-    description: 'Microsoft research'
-  },
-
-  // ===== PRODUCT OPS & ENABLEMENT =====
-
   // ===== MORE PM THOUGHT LEADERS =====
-  {
-    name: 'Shreyas Doshi',
-    url: 'https://twitter.com/shreyas/feed',
-    category: 'Product Leadership',
-    description: 'Product leadership insights'
-  },
   {
     name: 'Nir Eyal',
     url: 'https://www.nirandfar.com/feed/',
@@ -611,12 +582,6 @@ const PM_FEEDS = [
     description: 'Asana PM, interviewing expert'
   },
   {
-    name: 'Leah Tharin',
-    url: 'https://leahtharin.com/feed/',
-    category: 'Product Management',
-    description: 'Product leadership coach'
-  },
-  {
     name: 'Itamar Gilad',
     url: 'https://itamargilad.com/feed/',
     category: 'Product Management',
@@ -638,20 +603,7 @@ const PM_FEEDS = [
     category: 'Product Strategy',
     description: 'B2B SaaS insights'
   },
-  {
-    name: 'ChartMogul Blog',
-    url: 'https://chartmogul.com/blog/feed/',
-    category: 'Product Analytics',
-    description: 'SaaS analytics & metrics'
-  },
-
   // ===== MOBILE & APP PRODUCT =====
-  {
-    name: 'Mobile Growth Stack',
-    url: 'https://www.mobilegrowthstack.com/feed/',
-    category: 'Mobile Product',
-    description: 'Mobile app growth'
-  },
   {
     name: 'Appcues Blog',
     url: 'https://www.appcues.com/blog/feed',
@@ -660,12 +612,6 @@ const PM_FEEDS = [
   },
 
   // ===== PLATFORM & API PRODUCT =====
-  {
-    name: 'Postman Blog',
-    url: 'https://blog.postman.com/feed/',
-    category: 'API Product',
-    description: 'API development platform'
-  },
   {
     name: 'Stripe Blog',
     url: 'https://stripe.com/blog/feed.rss',
@@ -678,8 +624,6 @@ const PM_FEEDS = [
     category: 'API Product',
     description: 'Communications platform'
   },
-
-  // ===== SECURITY & PRIVACY IN PRODUCT =====
 
   // ===== DEVELOPER EXPERIENCE =====
   {
@@ -746,20 +690,6 @@ const PM_FEEDS = [
     category: 'Behavioral Product',
     description: 'Behavioral economics'
   },
-  {
-    name: 'Choice Hacking',
-    url: 'https://www.choice-hacking.com/feed',
-    category: 'Behavioral Product',
-    description: 'Behavioral science for products'
-  },
-
-  // ===== PRODUCT MARKETING =====
-  {
-    name: 'Drift Blog',
-    url: 'https://www.drift.com/blog/feed/',
-    category: 'Product Marketing',
-    description: 'Conversational marketing'
-  },
 
   // ===== CUSTOMER SUCCESS & SUPPORT =====
   {
@@ -783,12 +713,6 @@ const PM_FEEDS = [
     description: 'New startup launches and products'
   },
   {
-    name: 'SaaS Hub',
-    url: 'https://www.saashub.com/feed',
-    category: 'Product Launch',
-    description: 'SaaS software alternatives and reviews'
-  },
-  {
     name: 'AlternativeTo',
     url: 'https://alternativeto.net/news/feed/',
     category: 'Product Discovery',
@@ -805,12 +729,6 @@ const PM_FEEDS = [
     url: 'https://www.killerstartups.com/feed/',
     category: 'Product Launch',
     description: 'Startup reviews and launches'
-  },
-  {
-    name: 'F6S Startups',
-    url: 'https://www.f6s.com/feed',
-    category: 'Product Launch',
-    description: 'Startup community and funding'
   },
   {
     name: 'Crunchbase News',
@@ -885,12 +803,6 @@ const PM_FEEDS = [
     description: 'Tech market intelligence and trends'
   },
   {
-    name: 'AngelList Blog',
-    url: 'https://www.angellist.com/blog/feed.xml',
-    category: 'Product Launch',
-    description: 'Startup ecosystem insights'
-  },
-  {
     name: 'EU-Startups',
     url: 'https://www.eu-startups.com/feed/',
     category: 'Product Launch',
@@ -907,18 +819,6 @@ const PM_FEEDS = [
     url: 'https://tech.eu/feed/',
     category: 'Product Launch',
     description: 'European tech news'
-  },
-  {
-    name: 'TechInAsia',
-    url: 'https://www.techinasia.com/feed',
-    category: 'Product Launch',
-    description: 'Asian tech startup news'
-  },
-  {
-    name: 'e27',
-    url: 'https://e27.co/feed/',
-    category: 'Product Launch',
-    description: 'Southeast Asian startup news'
   },
   {
     name: 'YourStory',
@@ -939,22 +839,10 @@ const PM_FEEDS = [
     description: 'Pacific Northwest tech news'
   },
   {
-    name: 'The Information',
-    url: 'https://www.theinformation.com/feed',
-    category: 'Product Launch',
-    description: 'In-depth tech business news'
-  },
-  {
     name: 'Benedict Evans',
     url: 'https://www.ben-evans.com/benedictevans?format=rss',
     category: 'Product Strategy',
     description: 'Tech and mobile analysis'
-  },
-  {
-    name: 'Both Sides of the Table',
-    url: 'https://bothsidesofthetable.com/feed',
-    category: 'Product Launch',
-    description: 'VC perspective on startups'
   },
   {
     name: 'Fred Wilson AVC',
@@ -1031,6 +919,30 @@ function initDatabase() {
   }
   if (!db.has('userFiles').value()) {
     db.set('userFiles', []).write();
+  }
+}
+
+// Prune analytics data older than 30 days to prevent unbounded DB growth
+async function pruneAnalytics() {
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const keys = ['analytics.articleViews', 'analytics.searchQueries', 'analytics.chatQueries'];
+  let totalPruned = 0;
+
+  for (const key of keys) {
+    const records = db.get(key).value();
+    if (records && records.length > 0) {
+      const before = records.length;
+      const pruned = records.filter(r => r.timestamp > cutoff);
+      if (pruned.length < before) {
+        db.set(key, pruned);
+        totalPruned += before - pruned.length;
+      }
+    }
+  }
+
+  if (totalPruned > 0) {
+    await safeDbWrite(db);
+    console.log(`[Analytics] Pruned ${totalPruned} records older than 30 days`);
   }
 }
 
@@ -1124,7 +1036,7 @@ async function smartFeedRefresh() {
     const result = await fetchFeed(feed);
 
     if (result && result.items.length > 0) {
-      const saved = saveArticles(feed.id, result.items, feed.category, feed.name);
+      const saved = await saveArticles(feed.id, result.items, feed.category, feed.name);
 
       // Update feed activity metrics
       const latestItemDate = result.items[0]?.pubDate || result.items[0]?.isoDate;
@@ -1261,7 +1173,7 @@ async function fetchFeed(feed) {
 }
 
 // Save articles to database
-function saveArticles(feedId, items, category, feedName) {
+async function saveArticles(feedId, items, category, feedName) {
   let savedCount = 0;
 
   for (const item of items) {
@@ -1273,7 +1185,7 @@ function saveArticles(feedId, items, category, feedName) {
       const content = item.content || item['content:encoded'] || item.contentSnippet || item.description || '';
       const imageUrl = item.enclosure?.url || item['media:thumbnail']?.$ ?.url || item['media:content']?.$ ?.url || null;
 
-      const writeSuccess = safeDbWrite(
+      const writeSuccess = await safeDbWrite(
         db.get('articles').push({
           id: Date.now() + Math.random(),
           feedId: feedId,
@@ -1316,7 +1228,7 @@ async function fetchAllFeeds() {
     const result = await fetchFeed(feed);
 
     if (result && result.items.length > 0) {
-      const saved = saveArticles(feed.id, result.items, feed.category, feed.name);
+      const saved = await saveArticles(feed.id, result.items, feed.category, feed.name);
       return { feed, saved, success: true };
     } else if (result) {
       return { feed, saved: 0, success: true };
@@ -1389,7 +1301,6 @@ async function loadPodcastTranscripts() {
         guest: guestName,
         host: 'Lenny Rachitsky',
         description: description,
-        content: content,
         wordCount: wordCount,
         estimatedDuration: `${estimatedMinutes} min`,
         category: "Lenny's Podcast",
@@ -1397,6 +1308,8 @@ async function loadPodcastTranscripts() {
         fileName: file,
         pubDate: null, // We don't have exact dates
         fetchedAt: new Date().toISOString()
+        // NOTE: content intentionally omitted to save ~50MB RAM
+        // Use getTranscriptContent() to load on demand
       });
     } catch (err) {
       console.error(`Error loading transcript ${file}:`, err.message);
@@ -1404,28 +1317,46 @@ async function loadPodcastTranscripts() {
   }
 
   cache.transcripts = transcripts;
-  console.log(`✓ Loaded ${transcripts.length} podcast transcripts`);
+  console.log(`✓ Loaded ${transcripts.length} podcast transcripts (metadata only, content loaded on demand)`);
   return transcripts;
 }
 
-// Search transcripts
+// Load transcript content from disk on demand (saves ~50MB RAM vs keeping all in memory)
+function getTranscriptContent(transcript) {
+  if (!transcript?.fileName) return '';
+  try {
+    const filePath = path.join(PODCAST_DIR, transcript.fileName);
+    return fs.readFileSync(filePath, 'utf-8');
+  } catch (err) {
+    console.error(`Error reading transcript ${transcript.fileName}:`, err.message);
+    return '';
+  }
+}
+
+// Search transcripts (loads content from disk on demand)
 function searchTranscripts(query, limit = 20) {
   if (!cache.transcripts) return [];
 
   const queryLower = query.toLowerCase();
+  const results = [];
 
-  return cache.transcripts
-    .filter(t =>
-      t.guest.toLowerCase().includes(queryLower) ||
-      t.title.toLowerCase().includes(queryLower) ||
-      t.content.toLowerCase().includes(queryLower)
-    )
-    .slice(0, limit)
-    .map(t => ({
-      ...t,
-      content: undefined, // Don't send full content in search results
-      snippet: getSnippet(t.content, query)
-    }));
+  for (const t of cache.transcripts) {
+    // First check metadata (fast, no disk I/O)
+    if (t.guest.toLowerCase().includes(queryLower) ||
+        t.title.toLowerCase().includes(queryLower)) {
+      const content = getTranscriptContent(t);
+      results.push({ ...t, content: undefined, snippet: getSnippet(content, query) });
+    } else {
+      // Only load content from disk if metadata didn't match
+      const content = getTranscriptContent(t);
+      if (content.toLowerCase().includes(queryLower)) {
+        results.push({ ...t, content: undefined, snippet: getSnippet(content, query) });
+      }
+    }
+    if (results.length >= limit) break;
+  }
+
+  return results;
 }
 
 // Get context snippet around search term
@@ -1457,6 +1388,8 @@ app.use('/api/auth', authLimiter, createAuthRoutes(db));
 app.use('/api/settings', createSettingsRoutes(db));
 
 // Mount chat routes (with rate limiting)
+// Attach getTranscriptContent to cache so chat routes can pass it to RAG search
+cache.getTranscriptContent = getTranscriptContent;
 app.use('/api/chat', chatLimiter, createChatRoutes(db, cache));
 
 // Mount admin routes
@@ -1473,11 +1406,8 @@ app.get('/api/articles', (req, res) => {
     const includePodcasts = req.query.includePodcasts === 'true';
     const offset = (page - 1) * limit;
 
-    // Use cached articles if available
-    let articles = cache.articles || db.get('articles').value();
-    if (!cache.articles) {
-      cache.articles = articles;
-    }
+    // Use cached articles (content-stripped, TTL-enforced)
+    let articles = getCachedArticles();
 
     // Include podcast transcripts if requested
     if (includePodcasts && cache.transcripts) {
@@ -1587,7 +1517,8 @@ app.get('/api/podcasts/:id', (req, res) => {
       return res.status(404).json({ error: 'Podcast transcript not found' });
     }
 
-    res.json(transcript);
+    // Load full content from disk on demand
+    res.json({ ...transcript, content: getTranscriptContent(transcript) });
   } catch (err) {
     console.error('Error fetching podcast:', err);
     res.status(500).json({ error: 'Failed to fetch podcast' });
@@ -1604,8 +1535,8 @@ app.get('/api/search', (req, res) => {
       return res.status(400).json({ error: 'Search query required' });
     }
 
-    // Search articles
-    const articles = (cache.articles || db.get('articles').value())
+    // Search articles (content-stripped cache is fine - only searches title/description)
+    const articles = getCachedArticles()
       .filter(a =>
         a.title?.toLowerCase().includes(query) ||
         a.description?.toLowerCase().includes(query)
@@ -1655,7 +1586,7 @@ app.get('/api/articles/:id', (req, res) => {
 
 app.get('/api/categories', (req, res) => {
   try {
-    const articles = cache.articles || db.get('articles').value();
+    const articles = getCachedArticles();
     const transcripts = cache.transcripts || [];
     const categoryMap = {};
 
@@ -1683,7 +1614,7 @@ app.get('/api/categories', (req, res) => {
 // Get category groups with hierarchy for sidebar
 app.get('/api/category-groups', (req, res) => {
   try {
-    const articles = cache.articles || db.get('articles').value();
+    const articles = getCachedArticles();
     const transcripts = cache.transcripts || [];
 
     // Build category counts
@@ -1754,7 +1685,7 @@ app.get('/api/category-groups', (req, res) => {
 app.get('/api/feeds', (req, res) => {
   try {
     const feeds = cache.feeds || db.get('feeds').value();
-    const articles = cache.articles || db.get('articles').value();
+    const articles = getCachedArticles();
     const transcripts = cache.transcripts || [];
 
     const feedsWithCounts = feeds.map(feed => ({
@@ -1787,7 +1718,7 @@ app.get('/api/feeds', (req, res) => {
 
 app.get('/api/stats', (req, res) => {
   try {
-    const articles = cache.articles || db.get('articles').value();
+    const articles = getCachedArticles();
     const feeds = cache.feeds || db.get('feeds').value();
     const metadata = db.get('metadata').value();
     const transcripts = cache.transcripts || [];
@@ -3011,6 +2942,7 @@ async function initialize() {
 
   initDatabase();
   initializeFeeds();
+  await pruneAnalytics();
 
   // Load Lenny's Podcast transcripts
   await loadPodcastTranscripts();
@@ -3018,16 +2950,17 @@ async function initialize() {
   console.log('\nPerforming initial smart feed fetch...');
   await smartFeedRefresh();
 
-  // Schedule smart feed updates every 2 hours
-  cron.schedule('0 */2 * * *', async () => {
+  // Schedule smart feed updates every 4 hours
+  cron.schedule('0 */4 * * *', async () => {
     console.log('\n[CRON] Scheduled smart feed update starting...');
     await smartFeedRefresh();
   });
 
-  // Schedule daily digest preparation at 6 AM
+  // Schedule daily digest preparation and analytics pruning at 6 AM
   cron.schedule('0 6 * * *', async () => {
     console.log('\n[CRON] Preparing daily email digests...');
     await prepareDailyDigests();
+    await pruneAnalytics();
   });
 
   // Schedule weekly digest on Mondays at 8 AM
@@ -3037,7 +2970,7 @@ async function initialize() {
   });
 
   console.log('\n✓ Cron jobs scheduled:');
-  console.log('  - Smart feed updates every 2 hours');
+  console.log('  - Smart feed updates every 4 hours');
   console.log('  - Daily digest at 6 AM');
   console.log('  - Weekly digest on Mondays at 8 AM');
   console.log(`✓ ${cache.transcripts?.length || 0} Lenny's Podcast transcripts loaded`);

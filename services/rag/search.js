@@ -22,17 +22,19 @@ function escapeRegExp(str) {
  */
 function calculateRelevance(text, keywords) {
   if (!text) return 0;
-  const textLower = text.toLowerCase();
   let score = 0;
 
   for (const keyword of keywords) {
     // SECURITY: Limit keyword length to prevent DoS
     if (keyword.length > 100) continue;
 
-    const keywordLower = keyword.toLowerCase();
-    // SECURITY: Use string methods instead of regex to prevent ReDoS
-    // Count occurrences using split (safe, no regex)
-    const occurrences = textLower.split(keywordLower).length - 1;
+    // Use word-boundary regex to avoid substring false positives
+    // e.g. "user" won't match "username", "refuse", "reusable"
+    // Safe: keywords are length-limited and special chars are escaped
+    const escaped = escapeRegExp(keyword.toLowerCase());
+    const regex = new RegExp(`\\b${escaped}\\b`, 'gi');
+    const matches = text.match(regex);
+    const occurrences = matches ? matches.length : 0;
     if (occurrences > 0) {
       score += occurrences;
       // Bonus for exact phrase match
@@ -74,14 +76,15 @@ function extractKeywords(query) {
     .split(/\s+/)
     .filter(word => word.length > 2 && !stopWords.has(word));
 
-  // Also extract phrases (2-3 consecutive words)
+  // Also extract phrases (2-3 consecutive non-stop words)
   const phrases = [];
-  const allWords = query.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/).filter(w => w.length > 0);
+  const significantWords = query.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/)
+    .filter(w => w.length > 2 && !stopWords.has(w));
 
-  for (let i = 0; i < allWords.length - 1; i++) {
-    phrases.push(`${allWords[i]} ${allWords[i + 1]}`);
-    if (i < allWords.length - 2) {
-      phrases.push(`${allWords[i]} ${allWords[i + 1]} ${allWords[i + 2]}`);
+  for (let i = 0; i < significantWords.length - 1; i++) {
+    phrases.push(`${significantWords[i]} ${significantWords[i + 1]}`);
+    if (i < significantWords.length - 2) {
+      phrases.push(`${significantWords[i]} ${significantWords[i + 1]} ${significantWords[i + 2]}`);
     }
   }
 
@@ -200,13 +203,14 @@ function searchContent(query, db, cache, options = {}) {
     includeArticles = true,
     includePodcasts = true,
     userFiles = [],        // User's uploaded files for personalized search
+    getTranscriptContent = null, // Optional: function to lazy-load transcript content from disk
     tier1Count = 10,
     tier1Length = 800,
     tier2Count = 15,
     tier2Length = 400,
     tier3Length = 150,
-    minRelevanceScore = 3, // Minimum score threshold to include
-    minNormalizedScore = 5  // Minimum normalized score (0-100)
+    minRelevanceScore = 5, // Minimum score threshold to include
+    minNormalizedScore = 8  // Minimum normalized score (0-100)
   } = options;
 
   const keywords = extractKeywords(query);
@@ -269,12 +273,13 @@ function searchContent(query, db, cache, options = {}) {
     }
   }
 
-  // Search podcast transcripts
+  // Search podcast transcripts (content loaded on demand from disk)
   if (includePodcasts && cache.transcripts) {
     for (const transcript of cache.transcripts) {
+      const transcriptContent = getTranscriptContent ? getTranscriptContent(transcript) : (transcript.content || '');
       const titleScore = calculateRelevance(transcript.title, boostedKeywords) * 3;
       const guestScore = calculateRelevance(transcript.guest, boostedKeywords) * 5; // Guest name very important
-      const contentScore = calculateRelevance(transcript.content, boostedKeywords);
+      const contentScore = calculateRelevance(transcriptContent, boostedKeywords);
 
       // Extra boost for guest name matches (especially for "who" questions)
       let exactMatchBonus = 0;
@@ -289,7 +294,7 @@ function searchContent(query, db, cache, options = {}) {
       }
 
       const totalScore = titleScore + guestScore + contentScore + exactMatchBonus;
-      const textLength = (transcript.title?.length || 0) + (transcript.guest?.length || 0) + (transcript.content?.length || 0);
+      const textLength = (transcript.title?.length || 0) + (transcript.guest?.length || 0) + (transcriptContent?.length || 0);
       const normalizedScore = normalizeScore(totalScore, textLength, keywords.length);
 
       if (totalScore >= minRelevanceScore && normalizedScore >= minNormalizedScore) {
@@ -302,7 +307,7 @@ function searchContent(query, db, cache, options = {}) {
           score: totalScore,
           normalizedScore,
           relevance: normalizedScore >= 50 ? 'high' : normalizedScore >= 20 ? 'medium' : 'low',
-          content: transcript.content || ''
+          content: transcriptContent
         });
       }
     }

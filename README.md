@@ -6,9 +6,9 @@
 
 **AI-Powered Product Management Knowledge Hub**
 
-ProductSnap is a comprehensive content aggregator designed for product managers, providing curated articles from 167+ RSS feeds, 298 Lenny's Podcast transcripts, and an AI-powered chat assistant with full RAG search across all content.
+ProductSnap is a comprehensive content aggregator designed for product managers, providing curated articles from 86 RSS feeds, 298 Lenny's Podcast transcripts, and an AI-powered chat assistant with full RAG search across all content.
 
-![Version](https://img.shields.io/badge/version-3.2.0-blue)
+![Version](https://img.shields.io/badge/version-3.3.0-blue)
 ![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-green)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -17,23 +17,24 @@ ProductSnap is a comprehensive content aggregator designed for product managers,
 ## Features
 
 ### Content Aggregation
-- **167+ RSS Feeds** - Curated from top PM publications, thought leaders, and tech companies
+- **86 Curated RSS Feeds** - Vetted, healthy feeds from top PM publications, thought leaders, and tech companies
 - **298 Lenny's Podcast Transcripts** - Full searchable transcripts (4.5M+ words) from the #1 PM podcast
 - **3,300+ Articles** - Continuously growing knowledge base
-- **Smart Feed Refresh** - Priority-based updates with health scoring
+- **Smart Feed Refresh** - Priority-based updates every 4 hours with health scoring
 - **My Files** - Upload your own documents (PDF, TXT, MD, DOCX) and chat with them
 
 ### AI-Powered Chat (RAG)
 - **Full Knowledge Base Search** - AI searches ALL articles, podcasts, and your files
 - **Multi-provider Support** - OpenAI (GPT-4o, o1), Anthropic (Claude), Google (Gemini)
 - **Token-Optimized Context** - Tiered snippet strategy saves ~47% tokens while keeping all 50 sources
+- **Word-Boundary Matching** - Precise `\b` regex matching eliminates false positives from substring matches
 - **Improved Relevance** - Query intent analysis, minimum score thresholds, normalized scoring
 - **Collapsible Sources** - Expand/collapse sources with relevance indicators (high/medium/low)
 - **Rich Formatting** - Syntax-highlighted code blocks, tables, lists, and blockquotes
 - **Source Citations** - Every AI response includes clickable source references
 - **Copy Code Button** - One-click copy for code snippets with language labels
 
-### Personal Features (New in v3.2)
+### Personal Features
 - **Bookmarks** - Save articles and podcasts with notes, export to Notion/Obsidian
 - **Read History** - Track what you've read with duration tracking
 - **My Analytics** - Personal reading stats, top categories, search history
@@ -55,12 +56,20 @@ ProductSnap is a comprehensive content aggregator designed for product managers,
 - **Rate Limiting** - Protection against abuse on all endpoints
 - **SSRF Protection** - URL validation on content extraction
 
+### Performance Optimizations
+- **Server-Side Pagination** - Fetches 24 items per page instead of loading entire database
+- **Memory-Efficient Caching** - Article content stripped from cache, loaded on demand (~28MB saved)
+- **Lazy-Loaded Transcripts** - Podcast transcripts loaded from disk on demand (~48MB saved)
+- **Analytics Pruning** - Automatic 30-day retention prevents unbounded database growth
+- **Debounced Search** - 300ms debounce prevents excessive API calls while typing
+- **Non-Blocking DB Writes** - Async retry logic prevents event loop blocking
+
 ### User Interface
 - **Apple-Inspired Design** - Clean, minimal aesthetic with smooth animations
 - **Light & Dark Themes** - System-aware theme switching
 - **Glass Morphism** - Frosted glass header with backdrop blur
 - **In-App Reader** - Read articles without leaving the app
-- **Transcript Viewer** - Full-text podcast transcripts with search
+- **Transcript Viewer** - Full-text podcast transcripts with word-boundary search
 - **Responsive Design** - Works beautifully on desktop, tablet, and mobile
 
 ---
@@ -272,8 +281,9 @@ The AI chat searches **ALL** 3,300+ articles, 298 podcast transcripts, and your 
 ### How It Works
 1. Your question is analyzed for keywords, phrases, and intent (who/what/how questions)
 2. Every article, podcast, and your uploaded files are scored for relevance
-3. **Improved relevance filtering**:
-   - Minimum score thresholds filter out low-relevance results
+3. **Precise relevance filtering**:
+   - Word-boundary regex matching (`\b`) eliminates false positive substring matches
+   - Minimum score thresholds (relevance: 5, normalized: 8) filter noise
    - Normalized scoring for fair comparison across content lengths
    - Query intent analysis boosts relevant content types
    - Quoted terms and proper nouns get priority matching
@@ -282,8 +292,9 @@ The AI chat searches **ALL** 3,300+ articles, 298 podcast transcripts, and your 
    - **Tier 1** (Top 10): 800-char snippets for highest relevance
    - **Tier 2** (Next 15): 400-char snippets for good coverage
    - **Tier 3** (Last 25): 150-char snippets for breadth
-6. AI generates a response with rich markdown formatting
-7. Sources are cited with relevance indicators
+6. Transcript content is loaded lazily from disk (not held in memory)
+7. AI generates a response with rich markdown formatting
+8. Sources are cited with relevance indicators
 
 ### Chat Features
 - **Collapsible Sources** - Expand/collapse source panel, shows relevance (high/medium/low)
@@ -451,6 +462,15 @@ NODE_ENV=production npm start
 
 5. **Deploy** - Railway will automatically build and deploy
 
+### Memory Optimization (Railway)
+
+The app is optimized to run within 512MB memory on Railway:
+- Article content is stripped from the in-memory cache (~28MB saved)
+- Podcast transcripts are loaded from disk on demand (~48MB saved)
+- Analytics data is pruned to 30-day retention on startup and daily at 6 AM
+- Feed refresh runs every 4 hours to reduce memory churn
+- Cache TTL is enforced at 60 seconds to prevent stale data buildup
+
 ---
 
 ## Troubleshooting
@@ -458,7 +478,8 @@ NODE_ENV=production npm start
 ### OneDrive File Locking
 
 If you see `UNKNOWN: unknown error, open 'content-aggregator.json'`:
-- The app has built-in retry logic for OneDrive sync conflicts
+- The app has async retry logic (`safeDbWrite`) for OneDrive sync conflicts
+- Non-blocking retries with exponential backoff (200ms, 400ms, 600ms)
 - Concurrency is reduced to 3 parallel feed fetches
 - Wait for OneDrive to finish syncing before restarting
 

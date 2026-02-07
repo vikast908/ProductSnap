@@ -115,7 +115,8 @@ function createChatRoutes(db, cache) {
         maxResults: 50,
         includeArticles: true,
         includePodcasts: true,
-        userFiles: userFiles // Include user's personal files in search
+        userFiles: userFiles, // Include user's personal files in search
+        getTranscriptContent: cache.getTranscriptContent // Lazy-load transcript content from disk
       });
 
       console.log(`RAG search found ${searchResults.totalFound} relevant items (including ${userFiles.length} user files) for query: "${message.slice(0, 50)}..."`);
@@ -188,7 +189,8 @@ function createChatRoutes(db, cache) {
       const searchResults = searchContent(query, db, cache, {
         maxResults: sanitizedMaxResults,
         includeArticles: true,
-        includePodcasts: true
+        includePodcasts: true,
+        getTranscriptContent: cache.getTranscriptContent
       });
 
       res.json({
