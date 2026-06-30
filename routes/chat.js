@@ -9,6 +9,7 @@ const {
 } = require('../services/ai');
 const { searchContent, searchHybrid, formatSources } = require('../services/rag/search');
 const embeddings = require('../services/rag/embeddings');
+const guardrails = require('../services/ai/guardrails');
 
 const router = express.Router();
 
@@ -148,6 +149,16 @@ function createChatRoutes(db, cache) {
     res.on('close', () => { if (!finished) { clientGone = true; controller.abort(); } });
 
     try {
+      // Guardrail — INPUT rail: block blatant prompt-injection/jailbreak before
+      // spending any retrieval or LLM work; stream a safe refusal instead.
+      const inputCheck = guardrails.checkInput(message);
+      if (inputCheck.blocked) {
+        send('stage', { stage: 'writing', provider: selectedProvider, model: selectedModel });
+        send('delta', { text: inputCheck.response });
+        send('done', { provider: selectedProvider, model: selectedModel, usage: null, guardrail: inputCheck.reason });
+        return finish();
+      }
+
       const aiService = createAIService(selectedProvider, apiKey, {
         baseURL: customBaseUrl,
         defaultModel: selectedModel
@@ -189,16 +200,25 @@ function createChatRoutes(db, cache) {
       // Stage 3: generate, streaming tokens as they arrive
       send('stage', { stage: 'writing', provider: selectedProvider, model: selectedModel });
 
+      // Guardrail — CONTEXT rail: neutralize indirect prompt injection embedded
+      // in retrieved sources before handing them to the model.
+      const safeContext = guardrails.sanitizeContext(searchResults.context);
+
+      let answerBuf = '';
       const meta = await aiService.chatStream(
         message,
-        searchResults.context,
+        safeContext,
         history,
         selectedModel,
         {
           signal: controller.signal,
-          onText: (delta) => { if (!clientGone) send('delta', { text: delta }); }
+          onText: (delta) => { answerBuf += delta; if (!clientGone) send('delta', { text: delta }); }
         }
       );
+
+      // Guardrail — OUTPUT rail: cheap leak check on the finished answer.
+      const outCheck = guardrails.checkOutput(answerBuf);
+      if (outCheck.flagged) console.warn('[guardrail] output flagged:', outCheck.reason);
 
       send('done', {
         provider: meta.provider,
