@@ -9,7 +9,7 @@ This file provides context for Claude AI when working on the ProductSnap codebas
 ## Tech Stack
 
 ### Backend
-- **Runtime**: Node.js v18+
+- **Runtime**: Node.js 20–22 (Node 18 is EOL — removed from Nixpkgs, so Railway/nixpacks pins `nodejs_20`; embeddings need ≤22)
 - **Framework**: Express.js
 - **Database**: LowDB (JSON file: `content-aggregator.json`)
 - **Authentication**: Passport.js with Google OAuth 2.0
