@@ -1,5 +1,7 @@
+# Node 18 is EOL and removed from Nixpkgs. Node 20 is the current LTS and stays
+# within the 18-22 window onnxruntime-node (semantic embeddings) supports.
 [phases.setup]
-nixPkgs = ["nodejs_18"]
+nixPkgs = ["nodejs_20"]
 
 [phases.install]
 cmds = ["npm install", "cd client && npm install"]

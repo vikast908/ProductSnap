@@ -6,9 +6,9 @@
 
 **AI-Powered Product Management Knowledge Hub**
 
-ProductSnap is a comprehensive content aggregator designed for product managers, providing curated articles from 86 RSS feeds, 298 Lenny's Podcast transcripts, and an AI-powered chat assistant with full RAG search across all content.
+ProductSnap is a comprehensive content aggregator designed for product managers, providing curated articles from RSS feeds, 323 Lenny's Podcast transcripts, and an AI-powered chat assistant with **hybrid RAG** (keyword + local semantic search) across all content, answering through your choice of AI provider with streaming responses and inline citations.
 
-![Version](https://img.shields.io/badge/version-3.3.0-blue)
+![Version](https://img.shields.io/badge/version-3.4.0-blue)
 ![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-green)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -17,22 +17,23 @@ ProductSnap is a comprehensive content aggregator designed for product managers,
 ## Features
 
 ### Content Aggregation
-- **86 Curated RSS Feeds** - Vetted, healthy feeds from top PM publications, thought leaders, and tech companies
-- **298 Lenny's Podcast Transcripts** - Full searchable transcripts (4.5M+ words) from the #1 PM podcast
-- **3,300+ Articles** - Continuously growing knowledge base
+- **Curated RSS Feeds** - Vetted, healthy feeds from top PM publications, thought leaders, and tech companies
+- **323 Lenny's Podcast Transcripts** - Full searchable transcripts from the #1 PM podcast
+- **~5,000 Articles** - Continuously growing knowledge base
 - **Smart Feed Refresh** - Priority-based updates every 4 hours with health scoring
+- **Daily Dead-Link Sweep** - Articles whose links 404 twice in a row are pruned automatically
 - **My Files** - Upload your own documents (PDF, TXT, MD, DOCX) and chat with them
 
-### AI-Powered Chat (RAG)
-- **Full Knowledge Base Search** - AI searches ALL articles, podcasts, and your files
-- **Multi-provider Support** - OpenAI (GPT-4o, o1), Anthropic (Claude), Google (Gemini)
-- **Token-Optimized Context** - Tiered snippet strategy saves ~47% tokens while keeping all 50 sources
-- **Word-Boundary Matching** - Precise `\b` regex matching eliminates false positives from substring matches
-- **Improved Relevance** - Query intent analysis, minimum score thresholds, normalized scoring
-- **Collapsible Sources** - Expand/collapse sources with relevance indicators (high/medium/low)
+### AI-Powered Chat (Hybrid RAG)
+- **Hybrid Retrieval** - Keyword (lexical) + local semantic embeddings, fused with Reciprocal Rank Fusion; degrades gracefully to keyword-only when semantic search is off
+- **Streaming Responses** - Token-by-token streaming over SSE with a staged progress UI (refining → searching → reading → writing)
+- **Multi-provider Support** - OpenAI, Anthropic (Claude), Google (Gemini), OpenRouter, and any custom OpenAI-compatible endpoint
+- **Local Embeddings** - `Xenova/bge-small-en-v1.5` via Transformers.js — no API key, runs on-box
+- **Query Rewriting** - Expands your question into varied search queries to raise recall
+- **Token-Optimized Context** - Tiered snippet strategy saves ~47% tokens while keeping ~50 sources
+- **Inline Citations** - Numbered sources surfaced before the answer; `[n]` markers link to them
+- **Cancel & Retry** - Stop generation mid-stream; retry, resume, or regenerate any turn
 - **Rich Formatting** - Syntax-highlighted code blocks, tables, lists, and blockquotes
-- **Source Citations** - Every AI response includes clickable source references
-- **Copy Code Button** - One-click copy for code snippets with language labels
 
 ### Personal Features
 - **Bookmarks** - Save articles and podcasts with notes, export to Notion/Obsidian
@@ -77,7 +78,7 @@ ProductSnap is a comprehensive content aggregator designed for product managers,
 ## Quick Start
 
 ### Prerequisites
-- Node.js >= 18.0.0
+- Node.js 20–22 (Node 18 is EOL; semantic embeddings need ≤ 22)
 - npm >= 9.0.0
 - Google Cloud OAuth credentials
 
@@ -125,7 +126,14 @@ SESSION_SECRET=your_session_secret_key_here
 
 # Production only
 FRONTEND_URL=https://yourdomain.com
+
+# Optional - Semantic search (requires Node 20-22 + a built rag-index/)
+SEMANTIC_SEARCH=true
+# EMBED_MODEL=Xenova/bge-small-en-v1.5
+# EMBED_DTYPE=q8
 ```
+
+> **Note:** AI provider keys are **not** server env vars — each user adds their own (encrypted) keys in **Settings**.
 
 2. **Set up Google OAuth:**
    - Go to [Google Cloud Console](https://console.cloud.google.com)
@@ -163,7 +171,8 @@ Visit **http://localhost:3000** in your browser.
 - multer - File upload handling
 - pdf-parse - PDF text extraction
 - adm-zip - DOCX file parsing
-- OpenAI/Anthropic/Google SDKs - AI providers
+- OpenAI / Anthropic / Google SDKs - AI providers (OpenAI SDK also powers OpenRouter + custom endpoints)
+- @huggingface/transformers (Transformers.js) - local embeddings for semantic search
 
 **Frontend:**
 - React 19 - UI framework
@@ -196,13 +205,27 @@ productsnap/
 ├── services/
 │   ├── encryption.js      # AES-256-GCM encryption
 │   ├── ai/
-│   │   ├── index.js       # AI service factory
-│   │   ├── openai.js      # OpenAI integration
+│   │   ├── index.js       # Provider registry + AI service factory
+│   │   ├── prompt.js      # Shared system prompt + [n] citation contract
+│   │   ├── openai.js      # OpenAI / OpenRouter / custom (OpenAI-compatible)
 │   │   ├── anthropic.js   # Anthropic integration
 │   │   └── google.js      # Google AI integration
-│   └── rag/
-│       └── search.js      # RAG content search (50 sources)
+│   ├── rag/
+│   │   ├── search.js      # Lexical + hybrid (RRF) retrieval
+│   │   ├── embeddings.js  # Local Transformers.js embeddings
+│   │   ├── chunk.js       # Offset-based text chunker
+│   │   ├── index-store.js # Off-heap vector index (rag-index/)
+│   │   ├── build.js       # Full index build
+│   │   ├── reindex.js     # Incremental index sync (daily cron)
+│   │   └── podcast-id.js  # Stable transcript IDs
+│   └── maintenance/
+│       └── link-check.js  # Daily dead-link sweep
 │
+├── scripts/
+│   ├── build-rag-index.js     # npm run rag:build
+│   └── import-lenny-podcasts.js # npm run rag:import
+│
+├── rag-index/              # Semantic vector index (gitignored; rebuild with rag:build)
 ├── uploads/                # User uploaded files (per-user folders)
 │
 ├── client/                 # React frontend
@@ -223,8 +246,8 @@ productsnap/
 │   │       └── files/     # MyFilesPage
 │   └── dist/              # Built frontend
 │
-└── Lenny's Podcast Transcripts Archive/
-    └── *.txt              # 298 transcript files
+└── Lenny's Podcast Transcripts Archive [public]/
+    └── *.txt              # 323 transcript files
 ```
 
 ---
@@ -252,8 +275,9 @@ productsnap/
 | `/api/auth/logout` | POST | Any | Logout |
 | `/api/settings` | GET/PUT | Any | User preferences |
 | `/api/settings/api-keys` | PUT | Any | Save API keys |
-| `/api/chat` | POST | Any | AI chat with RAG (50 sources) |
-| `/api/chat/providers` | GET | Any | Get AI providers |
+| `/api/chat` | POST | Any | Streaming AI chat with hybrid RAG (SSE) |
+| `/api/chat/search` | POST | Any | Lexical RAG search without AI |
+| `/api/chat/providers` | GET | Any | Get AI providers (+ key-configured status) |
 | `/api/bookmarks` | GET/POST | Any | List/add bookmarks |
 | `/api/bookmarks/:id` | DELETE/PATCH | Any | Remove/update bookmark |
 | `/api/history` | GET/POST | Any | Get/track read history |
@@ -276,25 +300,21 @@ productsnap/
 
 ## AI Chat - Full Knowledge Base Search
 
-The AI chat searches **ALL** 3,300+ articles, 298 podcast transcripts, and your uploaded files to find the most relevant content for your question.
+The AI chat searches **ALL** ~5,000 articles, 323 podcast transcripts, and your uploaded files to find the most relevant content for your question.
 
 ### How It Works
-1. Your question is analyzed for keywords, phrases, and intent (who/what/how questions)
-2. Every article, podcast, and your uploaded files are scored for relevance
-3. **Precise relevance filtering**:
-   - Word-boundary regex matching (`\b`) eliminates false positive substring matches
-   - Minimum score thresholds (relevance: 5, normalized: 8) filter noise
-   - Normalized scoring for fair comparison across content lengths
-   - Query intent analysis boosts relevant content types
-   - Quoted terms and proper nouns get priority matching
-4. Top 50 most relevant sources are selected
-5. **Tiered snippets** are extracted to optimize token usage:
-   - **Tier 1** (Top 10): 800-char snippets for highest relevance
-   - **Tier 2** (Next 15): 400-char snippets for good coverage
-   - **Tier 3** (Last 25): 150-char snippets for breadth
-6. Transcript content is loaded lazily from disk (not held in memory)
-7. AI generates a response with rich markdown formatting
-8. Sources are cited with relevance indicators
+1. (Optional) Your question is **rewritten** into a few varied search queries to raise recall
+2. **Hybrid retrieval** runs two arms in parallel:
+   - **Lexical** — keyword/phrase scoring with word-boundary (`\b`) matching, query-intent analysis (who/what/how), and priority for quoted terms and proper nouns
+   - **Semantic** — local embeddings (`Xenova/bge-small-en-v1.5`) over a prebuilt vector index, brute-force cosine, best chunk per source
+3. The two ranked lists are fused with **Reciprocal Rank Fusion** (falls back to lexical-only when semantic search is off or no index is built)
+4. Top ~50 sources are selected; **tiered snippets** optimize token usage:
+   - **Tier 1** (Top 10): 800-char snippets
+   - **Tier 2** (Next 15): 400-char snippets
+   - **Tier 3** (Last 25): 150-char snippets
+5. Transcript content is loaded lazily from disk (not held in memory)
+6. The AI **streams** a response with rich markdown formatting
+7. Numbered sources are surfaced up front and cited inline as `[n]`
 
 ### Chat Features
 - **Collapsible Sources** - Expand/collapse source panel, shows relevance (high/medium/low)
@@ -309,8 +329,8 @@ The AI chat searches **ALL** 3,300+ articles, 298 podcast transcripts, and your 
 
 1. **Login** with Google account
 2. Go to **Settings** -> **API Keys**
-3. Add your API key for OpenAI, Anthropic, or Google AI
-4. Select your preferred **model** in Settings -> Preferences
+3. Add your API key for OpenAI, Anthropic, Google AI, OpenRouter, or a custom endpoint
+4. Select your preferred **provider** and **model** (and Base URL for custom)
 5. Click the **chat icon** in the header
 6. Ask questions like:
    - "What does Brian Chesky say about product management?"
@@ -318,24 +338,19 @@ The AI chat searches **ALL** 3,300+ articles, 298 podcast transcripts, and your 
    - "What are the key metrics for product-led growth?"
    - "Compare what different guests said about hiring PMs"
 
-### Supported Models
+### Supported Providers & Models
 
-**OpenAI:**
-- GPT-4o (Latest)
-- GPT-4o Mini
-- GPT-4 Turbo
-- o1, o1-mini, o1-preview
+Providers and their selectable models are defined in one place — the `PROVIDERS` registry in `services/ai/index.js` — and surfaced to the UI automatically.
 
-**Anthropic:**
-- Claude Sonnet 4
-- Claude Opus 4
-- Claude 3.5 Sonnet/Haiku
-- Claude 3 Opus/Sonnet/Haiku
+**OpenAI:** GPT-4o, GPT-4o mini, GPT-4.1, GPT-4.1 mini, o4-mini
 
-**Google:**
-- Gemini 1.5 Pro
-- Gemini 1.5 Flash
-- Gemini 2.0 Flash (Experimental)
+**Anthropic:** Claude Opus 4.8, Claude Fable 5, Claude Sonnet 4.6, Claude Haiku 4.5
+
+**Google:** Gemini 1.5 Pro, Gemini 2.0 Flash, Gemini 1.5 Flash
+
+**OpenRouter:** one key, hundreds of models (Claude, GPT, Gemini, Llama, DeepSeek, …)
+
+**Custom:** any OpenAI-compatible endpoint (local models, proxies, self-hosted) via a Base URL
 
 ---
 
@@ -462,14 +477,27 @@ NODE_ENV=production npm start
 
 5. **Deploy** - Railway will automatically build and deploy
 
+The build is driven by `nixpacks.toml`, which pins **Node 20** (Node 18 is EOL and was removed from Nixpkgs — pinning it causes `Node.js 18.x has reached End-Of-Life` build failures).
+
+### Semantic search on Railway (optional)
+
+Semantic search is **off by default** on Railway, because:
+- `rag-index/` is gitignored, so no vector index ships with the repo, and
+- `SEMANTIC_SEARCH` is unset.
+
+Chat still works fully in **lexical (keyword) mode**. To enable hybrid semantic search:
+- **Option A (turnkey):** un-ignore `rag-index/` in `.gitignore`, run `npm run rag:build` locally (Node 20–22), commit the index, and set `SEMANTIC_SEARCH=true` in Railway. Adds ~45MB to the repo and ~70–90MB resident memory.
+- **Option B:** add a one-off build/release step that runs `npm run rag:build` on the server before start.
+
 ### Memory Optimization (Railway)
 
-The app is optimized to run within 512MB memory on Railway:
+The app is tuned to keep memory low on Railway:
 - Article content is stripped from the in-memory cache (~28MB saved)
 - Podcast transcripts are loaded from disk on demand (~48MB saved)
 - Analytics data is pruned to 30-day retention on startup and daily at 6 AM
 - Feed refresh runs every 4 hours to reduce memory churn
-- Cache TTL is enforced at 60 seconds to prevent stale data buildup
+- Cache TTL is enforced to prevent stale data buildup
+- The embedding model (when `SEMANTIC_SEARCH=true`) is lazy-loaded, so its ~70–90MB cost is only paid if semantic search is actually used
 
 ---
 
@@ -493,7 +521,16 @@ If you see `UNKNOWN: unknown error, open 'content-aggregator.json'`:
 
 - Verify API key is correct in Settings
 - Check that you've selected a model for the provider
+- For the **custom** provider, make sure a Base URL is set
 - Look at server logs for API error messages
+
+### Railway build fails: "Node.js 18.x has reached End-Of-Life"
+
+Node 18 was removed from Nixpkgs. `nixpacks.toml` must pin a supported version — this repo uses `nodejs_20`. If you forked an older copy, change `nixPkgs = ["nodejs_18"]` to `["nodejs_20"]` and redeploy.
+
+### Semantic search shows "keyword only"
+
+Expected unless `SEMANTIC_SEARCH=true`, a `rag-index/` exists (`npm run rag:build`), and Node is 20–22. On newer Node the index sync is skipped automatically and chat falls back to keyword search.
 
 ---
 

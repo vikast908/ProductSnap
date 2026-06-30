@@ -4,7 +4,7 @@
   "description": "ProductSnap - AI-Powered Product Management Knowledge Hub with RSS feeds, Lenny's Podcast transcripts, and hybrid (lexical + semantic) RAG chat across multiple AI providers",
   "main": "aggregator-server.js",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0 <23.0.0"
   },
   "scripts": {
     "start": "node aggregator-server.js",
