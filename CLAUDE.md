@@ -190,7 +190,10 @@ SEMANTIC_SEARCH=true        # gate hybrid (semantic) retrieval at runtime; off =
 EMBED_MODEL=Xenova/bge-small-en-v1.5   # embedding model (default)
 EMBED_DTYPE=q8              # quantization (q8 keeps the model ~70-90MB)
 RAG_INDEX_DIR=./rag-index   # where the vector index is read/written (default)
+DATA_DIR=/data              # persist DB + uploads on a mounted volume (production); defaults to app dir
 ```
+
+`DATA_DIR` points the LowDB file (`content-aggregator.json`) and `uploads/` at a directory you control — set it to a mounted volume's path (e.g. a Railway volume at `/data`) so users, bookmarks, read history, and encrypted API keys survive redeploys. Keep `ENCRYPTION_KEY` constant or stored API keys won't decrypt.
 Note: building/using the index requires Node 18–22 (onnxruntime-node prebuilds). On newer Node, the daily index sync is skipped automatically and chat falls back to lexical search.
 
 ## API Routes

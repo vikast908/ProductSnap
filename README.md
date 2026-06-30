@@ -479,6 +479,13 @@ NODE_ENV=production npm start
 
 The build is driven by `nixpacks.toml`, which pins **Node 20** (Node 18 is EOL and was removed from Nixpkgs — pinning it causes `Node.js 18.x has reached End-Of-Life` build failures).
 
+### Persistent data on Railway
+
+Railway's container filesystem is **ephemeral** — the database resets on every deploy. To keep users, bookmarks, read history, and saved API keys:
+1. Attach a **Volume** to the service (service → ⌘K → "Create Volume"), mount path e.g. `/data`. *(Volumes require a paid plan.)*
+2. Set **`DATA_DIR=/data`** so the app stores `content-aggregator.json` + `uploads/` on the volume.
+3. Keep **`ENCRYPTION_KEY`** constant across deploys, or stored API keys won't decrypt.
+
 ### Semantic search on Railway (optional)
 
 Semantic search is **off by default** on Railway, because:

@@ -46,8 +46,16 @@ const parser = new RSSParser({
   }
 });
 
+// Persistent data directory: set DATA_DIR (e.g. a Railway volume mount such as
+// /data) to keep the database + uploads across deploys. Defaults to the app
+// folder so local development is unchanged.
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+if (!fs.existsSync(DATA_DIR)) {
+  try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) { console.error('Could not create DATA_DIR:', e.message); }
+}
+
 // Database setup with corruption recovery
-const dbPath = path.join(__dirname, 'content-aggregator.json');
+const dbPath = path.join(DATA_DIR, 'content-aggregator.json');
 
 // Check if database file exists and is valid JSON before loading
 function initializeDatabaseFile() {
@@ -97,8 +105,8 @@ const db = low(adapter);
 // Podcast transcripts directory
 const PODCAST_DIR = path.join(__dirname, "Lenny's Podcast Transcripts Archive [public]");
 
-// User uploads directory
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
+// User uploads directory (lives under DATA_DIR so files persist with the DB)
+const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
