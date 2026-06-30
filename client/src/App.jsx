@@ -21,7 +21,7 @@ import { MyFilesPage } from '@/components/files/MyFilesPage'
 import {
   Search, X, ExternalLink, Copy, Check,
   Mic, FileText, MessageSquare, Sun, Moon, Menu, ChevronRight,
-  FolderOpen
+  FolderOpen, Bookmark
 } from 'lucide-react'
 
 // Reading time estimator
@@ -46,7 +46,7 @@ const formatDate = (dateString) => {
 
 // Main HomePage
 function HomePage() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, authFetch } = useAuth()
   const navigate = useNavigate()
   const [items, setItems] = useState([])
   const [totalItems, setTotalItems] = useState(0)
@@ -71,6 +71,8 @@ function HomePage() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState(null)
   const [categories, setCategories] = useState([])
+  const [bookmarkMap, setBookmarkMap] = useState({}) // item id -> bookmark id (saved items)
+  const [readSet, setReadSet] = useState(() => new Set()) // item ids the user has read
 
   const articlesPerPage = 24
 
@@ -182,6 +184,60 @@ function HomePage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [isAuthenticated])
 
+  // Load the user's saved + read state so cards can reflect it.
+  useEffect(() => {
+    if (!isAuthenticated) { setBookmarkMap({}); setReadSet(new Set()); return }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const [bRes, hRes] = await Promise.all([
+          authFetch('/api/bookmarks'),
+          authFetch('/api/history?limit=200')
+        ])
+        if (!cancelled && bRes.ok) {
+          const data = await bRes.json()
+          const map = {}
+          for (const b of data.bookmarks || []) {
+            const key = b.articleId ?? b.podcastId
+            if (key != null) map[key] = b.id
+          }
+          setBookmarkMap(map)
+        }
+        if (!cancelled && hRes.ok) {
+          const data = await hRes.json()
+          const set = new Set()
+          for (const h of data.history || []) {
+            if (h.articleId != null) set.add(h.articleId)
+            if (h.podcastId != null) set.add(h.podcastId)
+          }
+          setReadSet(set)
+        }
+      } catch { /* non-fatal — cards just won't show saved/read state */ }
+    })()
+    return () => { cancelled = true }
+  }, [isAuthenticated, authFetch])
+
+  // Toggle a saved/bookmarked item (optimistic).
+  const toggleBookmark = async (item, e) => {
+    e.stopPropagation()
+    const key = item.id
+    const existingId = bookmarkMap[key]
+    if (existingId) {
+      setBookmarkMap(prev => { const n = { ...prev }; delete n[key]; return n })
+      try { await authFetch(`/api/bookmarks/${existingId}`, { method: 'DELETE' }) }
+      catch { setBookmarkMap(prev => ({ ...prev, [key]: existingId })) }
+    } else {
+      setBookmarkMap(prev => ({ ...prev, [key]: 'pending' }))
+      try {
+        const body = item.type === 'podcast' ? { podcastId: item.id } : { articleId: item.id }
+        const res = await authFetch('/api/bookmarks', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        const data = await res.json().catch(() => ({}))
+        if (res.ok && data.bookmark) setBookmarkMap(prev => ({ ...prev, [key]: data.bookmark.id }))
+        else setBookmarkMap(prev => { const n = { ...prev }; delete n[key]; return n })
+      } catch { setBookmarkMap(prev => { const n = { ...prev }; delete n[key]; return n }) }
+    }
+  }
+
   // Full-page spinner only on very first load (no items yet and loading)
   if (loading && items.length === 0 && totalItems === 0) {
     return (
@@ -193,6 +249,9 @@ function HomePage() {
       </div>
     )
   }
+
+  // Derived page size (for the "showing X–Y of N" range label).
+  const pageSize = totalPages > 0 ? Math.ceil(totalItems / totalPages) : (items.length || 1)
 
   return (
     <div className="min-h-screen bg-background">
@@ -403,13 +462,28 @@ function HomePage() {
                 </Badge>
               )}
               <p className="text-sm text-muted-foreground">
-                {totalItems} {totalItems === 1 ? 'result' : 'results'}
+                {totalPages > 1 && items.length > 0
+                  ? `Showing ${(currentPage - 1) * pageSize + 1}–${(currentPage - 1) * pageSize + items.length} of ${totalItems.toLocaleString()}`
+                  : `${totalItems.toLocaleString()} ${totalItems === 1 ? 'result' : 'results'}`}
               </p>
             </div>
           </div>
 
           {/* Content Grid */}
-          {items.length === 0 && !loading ? (
+          {items.length === 0 && loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" aria-busy="true" aria-label="Loading results">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="rounded-lg border bg-card overflow-hidden">
+                  <div className="aspect-[16/9] bg-muted animate-pulse" />
+                  <div className="p-4 space-y-2.5">
+                    <div className="h-4 w-3/4 bg-muted rounded animate-pulse" />
+                    <div className="h-3 w-full bg-muted rounded animate-pulse" />
+                    <div className="h-3 w-5/6 bg-muted rounded animate-pulse" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : items.length === 0 && !loading ? (
             <div className="text-center py-20">
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-accent flex items-center justify-center">
                 <Search className="h-8 w-8 text-muted-foreground" />
@@ -430,101 +504,106 @@ function HomePage() {
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {items.map(item => (
-                <Card
-                  key={item.id}
-                  className="group relative overflow-hidden border-0 bg-card hover:bg-accent/30 transition-all duration-200 cursor-pointer"
-                  onClick={() => {
-                    if (item.type === 'podcast') {
-                      setSelectedTranscript(item.id)
-                    } else {
-                      setReaderArticle(item)
-                      setReaderOpen(true)
-                    }
-                  }}
-                >
-                  <div className="p-5">
-                    {/* Header */}
-                    <div className="flex items-start justify-between gap-3 mb-3">
-                      <div className="flex items-center gap-2 min-w-0">
-                        {item.type === 'podcast' ? (
-                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                            <Mic className="h-4 w-4 text-primary" />
-                          </div>
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
-                            <FileText className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        )}
-                        <div className="min-w-0">
-                          <p className="text-xs font-medium truncate">
-                            {item.type === 'podcast' ? "Lenny's Podcast" : item.feedName}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {item.type === 'podcast' ? item.estimatedDuration : formatDate(item.pubDate)}
-                          </p>
-                        </div>
+            <div className={`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 transition-opacity ${loading ? 'opacity-60 pointer-events-none' : ''}`} aria-busy={loading}>
+              {items.map(item => {
+                const isPodcast = item.type === 'podcast'
+                const title = isPodcast ? item.guest : item.title
+                const isBookmarked = !!bookmarkMap[item.id]
+                const isRead = readSet.has(item.id)
+                const openItem = () => {
+                  if (isAuthenticated) {
+                    setReadSet(prev => { const n = new Set(prev); n.add(item.id); return n })
+                    const body = isPodcast ? { podcastId: item.id } : { articleId: item.id }
+                    authFetch('/api/history', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).catch(() => {})
+                  }
+                  if (isPodcast) { setSelectedTranscript(item.id) }
+                  else { setReaderArticle(item); setReaderOpen(true) }
+                }
+                const meta = isPodcast
+                  ? (item.estimatedDuration || (item.wordCount ? `${item.wordCount.toLocaleString()} words` : ''))
+                  : `${formatDate(item.pubDate)}${item.content ? ` · ${estimateReadTime(item.content, item.description)} min` : ''}`
+                return (
+                  <Card
+                    key={item.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={openItem}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openItem() } }}
+                    aria-label={`Open ${isPodcast ? 'podcast' : 'article'}: ${title}`}
+                    className="group relative flex flex-col h-full overflow-hidden cursor-pointer border bg-card hover:border-primary/40 hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {/* Thumbnail — image when available; centered glyph shows through the
+                        gradient when there's no image (or it fails to load). */}
+                    <div className="relative aspect-[16/9] bg-gradient-to-br from-accent to-muted overflow-hidden flex-shrink-0">
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        {isPodcast ? <Mic className="h-10 w-10 text-muted-foreground/25" /> : <FileText className="h-10 w-10 text-muted-foreground/25" />}
                       </div>
-
-                      {item.type !== 'podcast' && item.content && (
-                        <Badge variant="secondary" className="text-xs flex-shrink-0">
-                          {estimateReadTime(item.content, item.description)} min
-                        </Badge>
+                      {item.imageUrl && (
+                        <img
+                          src={item.imageUrl}
+                          alt=""
+                          loading="lazy"
+                          className="relative w-full h-full object-cover"
+                          onError={(e) => { e.currentTarget.style.display = 'none' }}
+                        />
+                      )}
+                      <div className="absolute top-2 left-2 inline-flex items-center gap-1 rounded-full bg-background/85 backdrop-blur px-2 py-0.5 text-[11px] font-medium max-w-[70%]">
+                        {isPodcast ? <Mic className="h-3 w-3 text-primary flex-shrink-0" /> : <FileText className="h-3 w-3 text-muted-foreground flex-shrink-0" />}
+                        <span className="truncate">{isPodcast ? "Lenny's Podcast" : item.feedName}</span>
+                      </div>
+                      {isAuthenticated && (
+                        <button
+                          onClick={(e) => toggleBookmark(item, e)}
+                          aria-label={isBookmarked ? 'Remove from saved' : 'Save for later'}
+                          aria-pressed={isBookmarked}
+                          className="absolute top-2 right-2 p-1.5 rounded-full bg-background/85 backdrop-blur text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <Bookmark className={`h-4 w-4 ${isBookmarked ? 'fill-current text-primary' : ''}`} />
+                        </button>
+                      )}
+                      {isRead && (
+                        <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-full bg-background/85 backdrop-blur px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                          <Check className="h-3 w-3 text-green-600" /> Read
+                        </span>
                       )}
                     </div>
 
-                    {/* Title */}
-                    <h3 className="font-semibold leading-snug mb-2 line-clamp-2 group-hover:text-primary transition-colors">
-                      {item.type === 'podcast' ? item.guest : item.title}
-                    </h3>
+                    <div className="flex flex-col flex-1 p-4">
+                      <h3 className="font-semibold leading-snug mb-1.5 line-clamp-2 group-hover:text-primary transition-colors">
+                        {title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                        {item.description || 'No description available'}
+                      </p>
 
-                    {/* Description */}
-                    <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
-                      {item.description || 'No description available'}
-                    </p>
-
-                    {/* Footer */}
-                    <div className="flex items-center justify-between pt-3 border-t border-border/50">
-                      <span className="text-xs text-muted-foreground">
-                        {item.type === 'podcast'
-                          ? `${item.wordCount?.toLocaleString()} words`
-                          : item.category
-                        }
-                      </span>
-
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        {item.type !== 'podcast' && (
-                          <>
+                      <div className="mt-auto flex items-center justify-between gap-2 pt-3 border-t border-border/50">
+                        <span className="text-xs text-muted-foreground truncate">{meta}</span>
+                        {!isPodcast && (
+                          <div className="flex items-center gap-0.5 flex-shrink-0">
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                copyLink(item.link)
-                              }}
-                              className="p-1.5 rounded-md hover:bg-accent transition-colors"
+                              onClick={(e) => { e.stopPropagation(); copyLink(item.link) }}
+                              aria-label="Copy link"
+                              className="p-1.5 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                             >
-                              {copiedLink === item.link
-                                ? <Check className="h-4 w-4 text-green-500" />
-                                : <Copy className="h-4 w-4" />
-                              }
+                              {copiedLink === item.link ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
                             </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                window.open(item.link, '_blank')
-                              }}
-                              className="p-1.5 rounded-md hover:bg-accent transition-colors"
+                            <a
+                              href={item.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              aria-label="Open original article in a new tab"
+                              className="p-1.5 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                             >
-                              <ExternalLink className="h-4 w-4" />
-                            </button>
-                          </>
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                          </div>
                         )}
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       </div>
                     </div>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                )
+              })}
             </div>
           )}
 

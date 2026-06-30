@@ -20,6 +20,28 @@ const ERROR_TITLES = {
   UNKNOWN_ERROR: 'Something Went Wrong'
 }
 
+// Extract a YouTube video id from any common URL form (embed, watch, youtu.be).
+function youtubeId(url) {
+  const m = String(url || '').match(/(?:youtube(?:-nocookie)?\.com\/(?:embed\/|watch\?(?:[^"']*&)?v=)|youtu\.be\/)([A-Za-z0-9_-]{11})/)
+  return m ? m[1] : null
+}
+
+function ytEmbedHtml(id) {
+  return `<div style="position:relative;width:100%;padding-top:56.25%;margin:1.5rem 0;border-radius:12px;overflow:hidden;background:#000"><iframe src="https://www.youtube.com/embed/${id}" title="YouTube video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen loading="lazy" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0"></iframe></div>`
+}
+
+// Rebuild YouTube iframes — including lazy `data-src` placeholders and non-embed
+// URLs that survive article extraction — into clean, config-valid responsive
+// embeds. This is the fix for YouTube "Error 153" (player configuration error),
+// which is triggered by sandboxed/lazy/empty-src or stripped-referrer iframes.
+function normalizeEmbeds(html) {
+  if (!html) return html
+  return String(html).replace(
+    /<iframe\b[^>]*?(?:data-src|src)\s*=\s*["']([^"']*(?:youtube(?:-nocookie)?\.com|youtu\.be)[^"']*)["'][^>]*?(?:\/>|>\s*<\/iframe>)/gi,
+    (full, src) => { const id = youtubeId(src); return id ? ytEmbedHtml(id) : full }
+  )
+}
+
 // Alternative reading services (free, no API key needed)
 const getAlternativeLinks = (url) => {
   const encoded = encodeURIComponent(url)
@@ -193,6 +215,8 @@ export function ArticleReader({
               size="sm"
               onClick={cycleFontSize}
               className="h-9 px-3 text-muted-foreground"
+              aria-label={`Text size: ${fontSize}. Click to change.`}
+              title="Text size"
             >
               <Type className="h-4 w-4 mr-1.5" />
               <span className="text-xs font-medium uppercase">{fontSize}</span>
@@ -202,10 +226,12 @@ export function ArticleReader({
               size="icon"
               onClick={() => window.open(article.link, '_blank')}
               className="h-9 w-9"
+              aria-label="Open original article in a new tab"
+              title="Open original"
             >
               <ExternalLink className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={onClose} className="h-9 w-9">
+            <Button variant="ghost" size="icon" onClick={onClose} className="h-9 w-9" aria-label="Close reader" title="Close">
               <X className="h-5 w-5" />
             </Button>
           </div>
@@ -336,7 +362,7 @@ export function ArticleReader({
                 )}
                 <div
                   className={`article-reader-content ${fontSizeClass}`}
-                  dangerouslySetInnerHTML={{ __html: content.content }}
+                  dangerouslySetInnerHTML={{ __html: normalizeEmbeds(content.content) }}
                 />
               </>
             )}
