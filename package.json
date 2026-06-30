@@ -1,7 +1,7 @@
 {
   "name": "productsnap",
-  "version": "3.2.0",
-  "description": "ProductSnap - AI-Powered Product Management Knowledge Hub with 167+ RSS feeds, Lenny's Podcast transcripts, and RAG-based AI chat",
+  "version": "3.4.0",
+  "description": "ProductSnap - AI-Powered Product Management Knowledge Hub with RSS feeds, Lenny's Podcast transcripts, and hybrid (lexical + semantic) RAG chat across multiple AI providers",
   "main": "aggregator-server.js",
   "engines": {
     "node": ">=18.0.0"
@@ -12,11 +12,14 @@
     "build": "cd client && npm install && npm run build",
     "build:client": "cd client && npm run build",
     "postinstall": "npm run build",
-    "setup": "npm install && cd client && npm install && npm run build"
+    "setup": "npm install && cd client && npm install && npm run build",
+    "rag:build": "node scripts/build-rag-index.js",
+    "rag:import": "node scripts/import-lenny-podcasts.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.12.0",
     "@google/generative-ai": "^0.2.1",
+    "@huggingface/transformers": "^3.8.1",
     "@mozilla/readability": "^0.6.0",
     "adm-zip": "^0.5.16",
     "axios": "^1.6.0",

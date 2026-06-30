@@ -8,6 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { ArticleReader } from '@/components/ArticleReader'
 import { TranscriptViewer } from '@/components/TranscriptViewer'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
+import { ToastProvider } from '@/components/ui/toast'
 import { LoginButton } from '@/components/auth/LoginButton'
 import { UserMenu } from '@/components/auth/UserMenu'
 import { SettingsPage } from '@/components/settings/SettingsPage'
@@ -168,6 +169,19 @@ function HomePage() {
     setTheme(prev => prev === 'dark' ? 'light' : 'dark')
   }
 
+  // ⌘K / Ctrl+K toggles the AI chat for signed-in users
+  useEffect(() => {
+    if (!isAuthenticated) return
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setChatOpen(prev => !prev)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isAuthenticated])
+
   // Full-page spinner only on very first load (no items yet and loading)
   if (loading && items.length === 0 && totalItems === 0) {
     return (
@@ -187,7 +201,7 @@ function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
             {/* Logo & Nav */}
-            <div className="flex items-center gap-8">
+            <div className="flex items-center gap-3 sm:gap-6 lg:gap-8 min-w-0">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-accent transition-colors"
@@ -195,9 +209,9 @@ function HomePage() {
                 <Menu className="h-5 w-5" />
               </button>
 
-              <div className="flex items-center gap-2">
-                <img src="/logo128.png" alt="ProductSnap" className="h-8 w-8" />
-                <h1 className="text-xl font-semibold tracking-tight">ProductSnap</h1>
+              <div className="flex items-center gap-2 min-w-0">
+                <img src="/logo128.png" alt="ProductSnap" className="h-8 w-8 flex-shrink-0" />
+                <h1 className="text-xl font-semibold tracking-tight truncate">ProductSnap</h1>
               </div>
 
               <nav className="hidden md:flex items-center gap-1">
@@ -232,7 +246,7 @@ function HomePage() {
             </div>
 
             {/* Search & Actions */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
               <div className="relative hidden sm:block">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -453,7 +467,7 @@ function HomePage() {
                         </div>
                       </div>
 
-                      {item.type !== 'podcast' && (
+                      {item.type !== 'podcast' && item.content && (
                         <Badge variant="secondary" className="text-xs flex-shrink-0">
                           {estimateReadTime(item.content, item.description)} min
                         </Badge>
@@ -620,6 +634,7 @@ function HomePage() {
 function App() {
   return (
     <AuthProvider>
+      <ToastProvider>
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/settings" element={<SettingsPage />} />
@@ -629,6 +644,7 @@ function App() {
         <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/my-files" element={<MyFilesPage />} />
       </Routes>
+      </ToastProvider>
     </AuthProvider>
   )
 }

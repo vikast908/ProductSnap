@@ -1,57 +1,35 @@
 /**
  * RAG (Retrieval-Augmented Generation) Search Service
  *
- * Searches articles and podcast transcripts to find relevant context
- * for AI chat responses.
+ * Two retrieval modes share one context/citation assembler:
+ *   - searchContent : lexical only (backward-compatible; used by /chat/search)
+ *   - searchHybrid  : lexical + semantic (local embeddings) fused via Reciprocal
+ *                     Rank Fusion. Falls back to lexical when semantic search is
+ *                     disabled or the vector index isn't built.
  */
 
-/**
- * Escape special regex characters to prevent ReDoS attacks
- * @param {string} str - String to escape
- * @returns {string} - Escaped string safe for use in RegExp
- */
 function escapeRegExp(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/**
- * Simple text similarity score based on keyword matching
- * @param {string} text - Text to search in
- * @param {Array<string>} keywords - Keywords to search for
- * @returns {number} - Relevance score
- */
 function calculateRelevance(text, keywords) {
   if (!text) return 0;
   let score = 0;
-
   for (const keyword of keywords) {
-    // SECURITY: Limit keyword length to prevent DoS
     if (keyword.length > 100) continue;
-
-    // Use word-boundary regex to avoid substring false positives
-    // e.g. "user" won't match "username", "refuse", "reusable"
-    // Safe: keywords are length-limited and special chars are escaped
     const escaped = escapeRegExp(keyword.toLowerCase());
     const regex = new RegExp(`\\b${escaped}\\b`, 'gi');
     const matches = text.match(regex);
     const occurrences = matches ? matches.length : 0;
     if (occurrences > 0) {
       score += occurrences;
-      // Bonus for exact phrase match
-      score += 2;
+      score += 2; // phrase/exact bonus
     }
   }
-
   return score;
 }
 
-/**
- * Extract keywords from a query
- * @param {string} query - User query
- * @returns {Array<string>} - Keywords
- */
 function extractKeywords(query) {
-  // Remove common stop words
   const stopWords = new Set([
     'a', 'an', 'the', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
     'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
@@ -69,203 +47,115 @@ function extractKeywords(query) {
     'know', 'get', 'make'
   ]);
 
-  // Split query into words and filter
-  const words = query
-    .toLowerCase()
-    .replace(/[^\w\s]/g, ' ')
-    .split(/\s+/)
+  const words = query.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/)
     .filter(word => word.length > 2 && !stopWords.has(word));
 
-  // Also extract phrases (2-3 consecutive non-stop words)
   const phrases = [];
   const significantWords = query.toLowerCase().replace(/[^\w\s]/g, ' ').split(/\s+/)
     .filter(w => w.length > 2 && !stopWords.has(w));
-
   for (let i = 0; i < significantWords.length - 1; i++) {
     phrases.push(`${significantWords[i]} ${significantWords[i + 1]}`);
     if (i < significantWords.length - 2) {
       phrases.push(`${significantWords[i]} ${significantWords[i + 1]} ${significantWords[i + 2]}`);
     }
   }
-
   return [...new Set([...words, ...phrases])];
 }
 
-/**
- * Get snippet around keyword match
- * @param {string} content - Full content
- * @param {Array<string>} keywords - Keywords to find
- * @param {number} snippetLength - Length of snippet
- * @returns {string} - Relevant snippet
- */
 function getRelevantSnippet(content, keywords, snippetLength = 500) {
   if (!content) return '';
-
   const contentLower = content.toLowerCase();
   let bestIndex = 0;
   let bestScore = 0;
-
-  // Find the position with highest keyword density
   for (let i = 0; i < content.length - snippetLength; i += 100) {
     const slice = contentLower.slice(i, i + snippetLength);
     let score = 0;
     for (const keyword of keywords) {
-      if (slice.includes(keyword.toLowerCase())) {
-        score++;
-      }
+      if (slice.includes(keyword.toLowerCase())) score++;
     }
-    if (score > bestScore) {
-      bestScore = score;
-      bestIndex = i;
-    }
+    if (score > bestScore) { bestScore = score; bestIndex = i; }
   }
-
-  // Extract snippet
   let start = Math.max(0, bestIndex);
   let end = Math.min(content.length, start + snippetLength);
-
-  // Adjust to word boundaries
   while (start > 0 && content[start - 1] !== ' ') start--;
   while (end < content.length && content[end] !== ' ') end++;
-
   let snippet = content.slice(start, end).trim();
-
   if (start > 0) snippet = '...' + snippet;
   if (end < content.length) snippet = snippet + '...';
-
   return snippet;
 }
 
-/**
- * Calculate a normalized relevance score (0-100)
- * Takes into account keyword density and match quality
- */
-function normalizeScore(score, textLength, keywordCount) {
-  if (!score || !textLength || !keywordCount) return 0;
-  // Factor in text length and keyword count for fair comparison
-  const density = score / (textLength / 1000); // Score per 1000 chars
-  const normalized = Math.min(100, Math.round(density * (keywordCount / 3) * 10));
-  return normalized;
+function sliceSnippet(content, s, l, max = 800) {
+  if (!content) return '';
+  let start = Math.max(0, s | 0);
+  let end = Math.min(content.length, start + Math.min(l | 0 || max, max));
+  while (start > 0 && content[start - 1] !== ' ') start--;
+  while (end < content.length && content[end] !== ' ') end++;
+  let snippet = content.slice(start, end).trim();
+  if (start > 0) snippet = '...' + snippet;
+  if (end < content.length) snippet = snippet + '...';
+  return snippet;
 }
 
-/**
- * Check if query is asking about a specific topic/person
- * Returns weighted keywords for better matching
- */
-function analyzeQueryIntent(query) {
-  const queryLower = query.toLowerCase();
+function normalizeScore(score, textLength, keywordCount) {
+  if (!score || !textLength || !keywordCount) return 0;
+  const density = score / (textLength / 1000);
+  return Math.min(100, Math.round(density * (keywordCount / 3) * 10));
+}
 
-  // Detect question types
+function analyzeQueryIntent(query) {
   const isWhoQuestion = /\bwho\b/i.test(query);
   const isHowQuestion = /\bhow\b/i.test(query);
   const isWhatQuestion = /\bwhat\b/i.test(query);
   const isExplainQuestion = /\b(explain|describe|tell me about)\b/i.test(query);
-
-  // Extract quoted terms (highest priority)
   const quotedTerms = query.match(/"([^"]+)"/g)?.map(t => t.replace(/"/g, '')) || [];
-
-  // Extract proper nouns / names (capitalized words not at sentence start)
   const words = query.split(/\s+/);
   const properNouns = words.slice(1).filter(w => /^[A-Z][a-z]/.test(w));
-
   return {
-    isWhoQuestion,
-    isHowQuestion,
-    isWhatQuestion,
-    isExplainQuestion,
-    quotedTerms,
-    properNouns,
+    isWhoQuestion, isHowQuestion, isWhatQuestion, isExplainQuestion,
+    quotedTerms, properNouns,
     hasSpecificTarget: quotedTerms.length > 0 || properNouns.length > 0
   };
 }
 
 /**
- * Search articles and podcasts for relevant content
- * Uses tiered snippet strategy to optimize token usage:
- * - Tier 1 (top 10): Full 800-char snippets for best relevance
- * - Tier 2 (next 15): Medium 400-char snippets for good coverage
- * - Tier 3 (remaining): Brief 150-char snippets for breadth
- *
- * Improved relevance filtering:
- * - Minimum score threshold to exclude low-relevance results
- * - Normalized scoring for fair comparison across different content lengths
- * - Query intent analysis for better matching
- *
- * @param {string} query - User query
- * @param {Object} db - LowDB instance
- * @param {Object} cache - Cache object containing transcripts
- * @param {Object} options - Search options
- * @returns {Object} - Search results with formatted context
+ * Lexical retrieval — produces the full ranked result set (with content) for a query.
+ * @returns {{ results: Array, keywords: Array, boostedKeywords: Array, queryIntent: Object }}
  */
-function searchContent(query, db, cache, options = {}) {
+function lexicalSearch(query, db, cache, options = {}) {
   const {
-    maxResults = 50,
     includeArticles = true,
     includePodcasts = true,
-    userFiles = [],        // User's uploaded files for personalized search
-    getTranscriptContent = null, // Optional: function to lazy-load transcript content from disk
-    tier1Count = 10,
-    tier1Length = 800,
-    tier2Count = 15,
-    tier2Length = 400,
-    tier3Length = 150,
-    minRelevanceScore = 5, // Minimum score threshold to include
-    minNormalizedScore = 8  // Minimum normalized score (0-100)
+    userFiles = [],
+    getTranscriptContent = null,
+    minRelevanceScore = 5,
+    minNormalizedScore = 8
   } = options;
 
   const keywords = extractKeywords(query);
   const queryIntent = analyzeQueryIntent(query);
   const results = [];
 
-  // Boost keywords based on query intent
   const boostedKeywords = [...keywords];
-  queryIntent.quotedTerms.forEach(term => {
-    boostedKeywords.unshift(term); // Add quoted terms with highest priority
-  });
-  queryIntent.properNouns.forEach(noun => {
-    boostedKeywords.unshift(noun.toLowerCase());
-  });
+  queryIntent.quotedTerms.forEach(term => boostedKeywords.unshift(term));
+  queryIntent.properNouns.forEach(noun => boostedKeywords.unshift(noun.toLowerCase()));
 
-  // Search articles
   if (includeArticles) {
     const articles = db.get('articles').value() || [];
-
     for (const article of articles) {
-      const titleScore = calculateRelevance(article.title, boostedKeywords) * 4; // Title is very important
+      const titleScore = calculateRelevance(article.title, boostedKeywords) * 4;
       const descScore = calculateRelevance(article.description, boostedKeywords) * 2;
       const contentScore = calculateRelevance(article.content, boostedKeywords);
-
-      // Extra boost for quoted term matches in title
       let exactMatchBonus = 0;
-      if (queryIntent.quotedTerms.some(term =>
-        article.title?.toLowerCase().includes(term.toLowerCase())
-      )) {
-        exactMatchBonus = 20;
-      }
-
-      // Boost for proper noun (name) matches
-      if (queryIntent.properNouns.some(noun =>
-        article.title?.toLowerCase().includes(noun.toLowerCase()) ||
-        article.content?.toLowerCase().includes(noun.toLowerCase())
-      )) {
-        exactMatchBonus += 10;
-      }
-
+      if (queryIntent.quotedTerms.some(t => article.title?.toLowerCase().includes(t.toLowerCase()))) exactMatchBonus = 20;
+      if (queryIntent.properNouns.some(n => article.title?.toLowerCase().includes(n.toLowerCase()) || article.content?.toLowerCase().includes(n.toLowerCase()))) exactMatchBonus += 10;
       const totalScore = titleScore + descScore + contentScore + exactMatchBonus;
       const textLength = (article.title?.length || 0) + (article.description?.length || 0) + (article.content?.length || 0);
       const normalizedScore = normalizeScore(totalScore, textLength, keywords.length);
-
-      // Only include if meets both thresholds
       if (totalScore >= minRelevanceScore && normalizedScore >= minNormalizedScore) {
         results.push({
-          type: 'article',
-          id: article.id,
-          title: article.title,
-          source: article.feedName,
-          url: article.link,
-          pubDate: article.pubDate,
-          score: totalScore,
-          normalizedScore,
+          type: 'article', id: article.id, title: article.title, source: article.feedName,
+          url: article.link, pubDate: article.pubDate, score: totalScore, normalizedScore,
           relevance: normalizedScore >= 50 ? 'high' : normalizedScore >= 20 ? 'medium' : 'low',
           content: article.content || article.description || ''
         });
@@ -273,39 +163,26 @@ function searchContent(query, db, cache, options = {}) {
     }
   }
 
-  // Search podcast transcripts (content loaded on demand from disk)
   if (includePodcasts && cache.transcripts) {
     for (const transcript of cache.transcripts) {
       const transcriptContent = getTranscriptContent ? getTranscriptContent(transcript) : (transcript.content || '');
       const titleScore = calculateRelevance(transcript.title, boostedKeywords) * 3;
-      const guestScore = calculateRelevance(transcript.guest, boostedKeywords) * 5; // Guest name very important
+      const guestScore = calculateRelevance(transcript.guest, boostedKeywords) * 5;
       const contentScore = calculateRelevance(transcriptContent, boostedKeywords);
-
-      // Extra boost for guest name matches (especially for "who" questions)
       let exactMatchBonus = 0;
       if (queryIntent.isWhoQuestion || queryIntent.properNouns.length > 0) {
-        if (queryIntent.properNouns.some(noun =>
-          transcript.guest?.toLowerCase().includes(noun.toLowerCase())
-        ) || queryIntent.quotedTerms.some(term =>
-          transcript.guest?.toLowerCase().includes(term.toLowerCase())
-        )) {
+        if (queryIntent.properNouns.some(n => transcript.guest?.toLowerCase().includes(n.toLowerCase())) ||
+            queryIntent.quotedTerms.some(t => transcript.guest?.toLowerCase().includes(t.toLowerCase()))) {
           exactMatchBonus = 30;
         }
       }
-
       const totalScore = titleScore + guestScore + contentScore + exactMatchBonus;
       const textLength = (transcript.title?.length || 0) + (transcript.guest?.length || 0) + (transcriptContent?.length || 0);
       const normalizedScore = normalizeScore(totalScore, textLength, keywords.length);
-
       if (totalScore >= minRelevanceScore && normalizedScore >= minNormalizedScore) {
         results.push({
-          type: 'podcast',
-          id: transcript.id,
-          title: transcript.title,
-          guest: transcript.guest,
-          source: "Lenny's Podcast",
-          score: totalScore,
-          normalizedScore,
+          type: 'podcast', id: transcript.id, title: transcript.title, guest: transcript.guest,
+          source: "Lenny's Podcast", score: totalScore, normalizedScore,
           relevance: normalizedScore >= 50 ? 'high' : normalizedScore >= 20 ? 'medium' : 'low',
           content: transcriptContent
         });
@@ -313,130 +190,192 @@ function searchContent(query, db, cache, options = {}) {
     }
   }
 
-  // Search user's uploaded files (prioritize with higher boost since they're personal)
   if (userFiles && userFiles.length > 0) {
     for (const file of userFiles) {
-      const titleScore = calculateRelevance(file.originalName, boostedKeywords) * 5; // Filename important
+      const titleScore = calculateRelevance(file.originalName, boostedKeywords) * 5;
       const contentScore = calculateRelevance(file.content, boostedKeywords);
-
-      // Extra boost for user files to prioritize personal content
-      const personalBoost = 15;
-
-      const totalScore = titleScore + contentScore + personalBoost;
+      const totalScore = titleScore + contentScore + 15;
       const textLength = (file.originalName?.length || 0) + (file.content?.length || 0);
       const normalizedScore = normalizeScore(totalScore, textLength, keywords.length);
-
       if (totalScore >= minRelevanceScore) {
         results.push({
-          type: 'userFile',
-          id: file.id,
-          title: file.originalName,
-          source: 'My Files',
-          score: totalScore,
-          normalizedScore,
+          type: 'userFile', id: file.id, title: file.originalName, source: 'My Files',
+          score: totalScore, normalizedScore,
           relevance: normalizedScore >= 50 ? 'high' : normalizedScore >= 20 ? 'medium' : 'low',
-          content: file.content || '',
-          uploadedAt: file.uploadedAt
+          content: file.content || '', uploadedAt: file.uploadedAt
         });
       }
     }
   }
 
-  // Sort by relevance score
   results.sort((a, b) => b.score - a.score);
+  return { results, keywords, boostedKeywords, queryIntent };
+}
 
-  // Determine how many results to actually use based on quality
-  // If we have lots of high-relevance results, use fewer total
-  // If results are mostly low-relevance, be more selective
+/**
+ * Tiered-snippet context assembler — shared by lexical and hybrid paths so the
+ * numbered [Source n] markers and citation alignment are identical in both.
+ */
+function assembleContext(results, snippetKeywords, options = {}) {
+  const {
+    maxResults = 50,
+    tier1Count = 10, tier1Length = 800,
+    tier2Count = 15, tier2Length = 400,
+    tier3Length = 150
+  } = options;
+
   const highRelevanceCount = results.filter(r => r.relevance === 'high').length;
   const mediumRelevanceCount = results.filter(r => r.relevance === 'medium').length;
 
-  // Dynamic result count based on quality
   let effectiveMaxResults = maxResults;
-  if (highRelevanceCount >= 15) {
-    // Lots of high-quality matches, focus on those
-    effectiveMaxResults = Math.min(30, maxResults);
-  } else if (highRelevanceCount + mediumRelevanceCount < 10) {
-    // Few good matches, be more selective
-    effectiveMaxResults = Math.min(15, maxResults);
-  }
+  if (highRelevanceCount >= 15) effectiveMaxResults = Math.min(30, maxResults);
+  else if (highRelevanceCount + mediumRelevanceCount < 10) effectiveMaxResults = Math.min(15, maxResults);
 
-  // Take top results and apply tiered snippets
   const topResults = results.slice(0, effectiveMaxResults).map((result, index) => {
-    let snippetLength;
-    let tier;
-
-    if (index < tier1Count) {
-      snippetLength = tier1Length;
-      tier = 1;
-    } else if (index < tier1Count + tier2Count) {
-      snippetLength = tier2Length;
-      tier = 2;
-    } else {
-      snippetLength = tier3Length;
-      tier = 3;
-    }
-
-    return {
-      ...result,
-      snippet: getRelevantSnippet(result.content, boostedKeywords, snippetLength),
-      tier,
-      content: undefined
-    };
+    let snippetLength, tier;
+    if (index < tier1Count) { snippetLength = tier1Length; tier = 1; }
+    else if (index < tier1Count + tier2Count) { snippetLength = tier2Length; tier = 2; }
+    else { snippetLength = tier3Length; tier = 3; }
+    // Semantic hits arrive with a snippet already set; lexical hits snippet from content.
+    const snippet = result.snippet
+      ? (result.snippet.length > snippetLength + 6 ? result.snippet.slice(0, snippetLength) + '...' : result.snippet)
+      : getRelevantSnippet(result.content, snippetKeywords, snippetLength);
+    return { ...result, snippet, tier, content: undefined };
   });
 
-  // Only include high and medium relevance sources for user display
-  // Low relevance sources are used for AI context but not shown prominently
   const displayResults = topResults.filter(r => r.relevance !== 'low' || r.tier === 1);
 
-  // Format context for AI with tiered approach
   const contextParts = topResults.map((result, index) => {
     const tierLabel = result.tier === 1 ? '' : result.tier === 2 ? ' (summary)' : ' (brief)';
-
     if (result.type === 'article') {
-      return `[Source ${index + 1}: Article - "${result.title}" from ${result.source}${tierLabel}]
-${result.snippet}`;
+      return `[Source ${index + 1}: Article - "${result.title}" from ${result.source}${tierLabel}]\n${result.snippet}`;
     } else if (result.type === 'userFile') {
-      return `[Source ${index + 1}: User's File - "${result.title}"${tierLabel}]
-${result.snippet}`;
-    } else {
-      return `[Source ${index + 1}: Lenny's Podcast with ${result.guest}${tierLabel}]
-${result.snippet}`;
+      return `[Source ${index + 1}: User's File - "${result.title}"${tierLabel}]\n${result.snippet}`;
     }
+    return `[Source ${index + 1}: Lenny's Podcast with ${result.guest}${tierLabel}]\n${result.snippet}`;
   });
 
-  // Calculate approximate token savings
-  const fullTokens = effectiveMaxResults * tier1Length / 4;
-  const tieredTokens = (Math.min(tier1Count, effectiveMaxResults) * tier1Length +
-    Math.min(tier2Count, Math.max(0, effectiveMaxResults - tier1Count)) * tier2Length +
-    Math.max(0, effectiveMaxResults - tier1Count - tier2Count) * tier3Length) / 4;
-  const tokenSavings = Math.round((1 - tieredTokens / fullTokens) * 100);
-
   return {
-    results: displayResults, // Only show relevant sources to user
-    allResults: topResults,  // All results for AI context
+    results: displayResults,
+    allResults: topResults,
     context: contextParts.join('\n\n'),
-    keywords: boostedKeywords.slice(0, 10), // Top keywords used
     totalFound: results.length,
     relevanceBreakdown: {
       high: highRelevanceCount,
       medium: mediumRelevanceCount,
       low: results.length - highRelevanceCount - mediumRelevanceCount
-    },
-    tokenOptimization: {
-      tier1Sources: Math.min(tier1Count, topResults.length),
-      tier2Sources: Math.min(tier2Count, Math.max(0, topResults.length - tier1Count)),
-      tier3Sources: Math.max(0, topResults.length - tier1Count - tier2Count),
-      estimatedTokenSavings: `${tokenSavings}%`
     }
   };
 }
 
 /**
- * Format sources for citation
- * @param {Array} results - Search results
- * @returns {Array} - Formatted source citations
+ * Lexical-only search (backward-compatible public API).
  */
+function searchContent(query, db, cache, options = {}) {
+  const { results, keywords, boostedKeywords } = lexicalSearch(query, db, cache, options);
+  const assembled = assembleContext(results, boostedKeywords, options);
+  return { ...assembled, keywords: boostedKeywords.slice(0, 10) };
+}
+
+/**
+ * Resolve a semantic parent hit into a result object (with snippet from offsets).
+ */
+function resolveSemanticParent(hit, parentMeta, db, cache, getTranscriptContent) {
+  if (hit.pt === 'article') {
+    const a = (db.get('articles').find({ id: hit.pid }).value()) || parentMeta || {};
+    const content = a.content || a.description || '';
+    return {
+      type: 'article', id: hit.pid, title: a.title || parentMeta?.title, source: a.feedName || parentMeta?.source,
+      url: a.link || parentMeta?.url, snippet: sliceSnippet(content, hit.best.s, hit.best.l)
+    };
+  }
+  if (hit.pt === 'podcast') {
+    const t = cache.transcripts?.find(x => x.id === hit.pid);
+    const content = t && getTranscriptContent ? getTranscriptContent(t) : '';
+    return {
+      type: 'podcast', id: hit.pid, title: t?.title || parentMeta?.title, guest: t?.guest || parentMeta?.guest,
+      source: "Lenny's Podcast", snippet: sliceSnippet(content, hit.best.s, hit.best.l)
+    };
+  }
+  return null;
+}
+
+/**
+ * Hybrid retrieval: lexical + semantic, fused with Reciprocal Rank Fusion.
+ * @param {string|string[]} queries - one or more (rewritten) search queries
+ */
+async function searchHybrid(queries, db, cache, options = {}) {
+  const queryList = Array.isArray(queries) ? queries.filter(Boolean) : [queries];
+  const primary = queryList[0] || '';
+  const embedder = options.embedder || require('./embeddings');
+  const indexStore = options.indexStore || require('./index-store').getIndex();
+
+  // Lexical arm (always runs; also covers user files).
+  const { results: lexResults, boostedKeywords } = lexicalSearch(primary, db, cache, options);
+
+  // Semantic arm (only when enabled + index built).
+  let semResults = [];
+  let semanticUsed = false;
+  const wantSemantic = options.semantic !== false && embedder.isEnabled?.() && indexStore.load?.() ;
+  if (wantSemantic && indexStore.isReady()) {
+    try {
+      const qVecs = [];
+      for (const q of queryList.slice(0, 4)) qVecs.push(await embedder.embedQuery(q));
+      const parentHits = indexStore.searchParents(qVecs, { chunkTopK: 400, parentTopK: 60 });
+      for (const hit of parentHits) {
+        const r = resolveSemanticParent(hit, indexStore.parents[hit.pid], db, cache, options.getTranscriptContent);
+        if (r) {
+          const ns = Math.round(hit.score * 100);
+          semResults.push({
+            ...r, score: hit.score, normalizedScore: ns,
+            relevance: hit.score >= 0.62 ? 'high' : hit.score >= 0.48 ? 'medium' : 'low'
+          });
+        }
+      }
+      semanticUsed = semResults.length > 0;
+    } catch (e) {
+      console.error('Semantic search failed, using lexical only:', e.message);
+    }
+  }
+
+  if (!semanticUsed) {
+    const assembled = assembleContext(lexResults, boostedKeywords, options);
+    return { ...assembled, keywords: boostedKeywords.slice(0, 10), semanticUsed: false };
+  }
+
+  // Reciprocal Rank Fusion (k=60) over the two ranked lists, keyed by parent.
+  const K = 60;
+  const keyOf = (r) => `${r.type}:${r.id}`;
+  const fused = new Map();
+  const consider = (list, weight = 1) => {
+    list.forEach((r, rank) => {
+      const key = keyOf(r);
+      const rrf = weight / (K + rank + 1);
+      const existing = fused.get(key);
+      if (existing) {
+        existing.rrf += rrf;
+        // keep a snippet + the stronger relevance label
+        if (!existing.snippet && r.snippet) existing.snippet = r.snippet;
+        if (relevanceRank(r.relevance) > relevanceRank(existing.relevance)) existing.relevance = r.relevance;
+        if (r.content && !existing.content) existing.content = r.content;
+      } else {
+        fused.set(key, { ...r, rrf });
+      }
+    });
+  };
+  consider(lexResults, 1);
+  consider(semResults, 1);
+
+  const fusedResults = Array.from(fused.values())
+    .sort((a, b) => b.rrf - a.rrf)
+    .map(r => ({ ...r, score: r.rrf })); // assembleContext slices in this order
+
+  const assembled = assembleContext(fusedResults, boostedKeywords, options);
+  return { ...assembled, keywords: boostedKeywords.slice(0, 10), semanticUsed: true };
+}
+
+function relevanceRank(r) { return r === 'high' ? 3 : r === 'medium' ? 2 : 1; }
+
 function formatSources(results) {
   return results.map((result, index) => ({
     index: index + 1,
@@ -453,10 +392,12 @@ function formatSources(results) {
 
 module.exports = {
   searchContent,
+  searchHybrid,
+  lexicalSearch,
+  assembleContext,
   extractKeywords,
   calculateRelevance,
   getRelevantSnippet,
   formatSources,
-  normalizeScore,
   analyzeQueryIntent
 };

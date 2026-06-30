@@ -24,6 +24,9 @@ const cookieParser = require('cookie-parser');
 const createAuthRoutes = require('./routes/auth');
 const createSettingsRoutes = require('./routes/settings');
 const createChatRoutes = require('./routes/chat');
+const { sweepDeadLinks } = require('./services/maintenance/link-check');
+const reindex = require('./services/rag/reindex');
+const { transcriptId } = require('./services/rag/podcast-id');
 const createAdminRoutes = require('./routes/admin');
 
 // Import middleware
@@ -1262,7 +1265,7 @@ async function loadPodcastTranscripts() {
       const estimatedMinutes = Math.round(wordCount / 150);
 
       transcripts.push({
-        id: `podcast-${Buffer.from(guestName).toString('base64').slice(0, 12)}`,
+        id: transcriptId(guestName),
         type: 'podcast',
         title: `Lenny's Podcast: ${guestName}`,
         guest: guestName,
@@ -2903,6 +2906,38 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'client', 'dist', 'index.html'));
 });
 
+// Daily maintenance: fetch new articles, remove dead-link ones, keep the
+// semantic index in sync. Each step is isolated so one failure can't abort the
+// rest or crash the server.
+async function runDailyMaintenance() {
+  console.log('\n[CRON 4AM] Daily maintenance starting…');
+
+  try {
+    await smartFeedRefresh();
+  } catch (e) {
+    console.error('[CRON 4AM] feed refresh failed:', e.message);
+  }
+
+  try {
+    const res = await sweepDeadLinks(db, safeDbWrite, {
+      concurrency: 8,
+      onProgress: (c, t) => { if (c % 500 === 0) console.log(`  link-check ${c}/${t}`); }
+    });
+    console.log(`[CRON 4AM] Link check: ${res.alive} alive, ${res.dead} dead-hits, ${res.uncertain} uncertain; removed ${res.removed.length} (2-strike).`);
+  } catch (e) {
+    console.error('[CRON 4AM] dead-link sweep failed:', e.message);
+  }
+
+  try {
+    const r = await reindex.syncIndex(db, { onLog: (m) => console.log('[CRON 4AM] index sync: ' + m) });
+    if (r.skipped) console.log('[CRON 4AM] index sync skipped:', r.skipped);
+  } catch (e) {
+    console.error('[CRON 4AM] index sync failed:', e.message);
+  }
+
+  console.log('[CRON 4AM] Daily maintenance complete.');
+}
+
 // Initialize server
 async function initialize() {
   console.log('Initializing ProductSnap - Your AI-Powered PM Knowledge Hub\n');
@@ -2923,6 +2958,9 @@ async function initialize() {
     await smartFeedRefresh();
   });
 
+  // Daily maintenance at 4 AM: new articles in, dead-link articles out, index synced
+  cron.schedule('0 4 * * *', () => { runDailyMaintenance(); });
+
   // Schedule daily digest preparation and analytics pruning at 6 AM
   cron.schedule('0 6 * * *', async () => {
     console.log('\n[CRON] Preparing daily email digests...');
@@ -2938,6 +2976,7 @@ async function initialize() {
 
   console.log('\n✓ Cron jobs scheduled:');
   console.log('  - Smart feed updates every 4 hours');
+  console.log('  - Daily maintenance (refresh + dead-link cleanup + index sync) at 4 AM');
   console.log('  - Daily digest at 6 AM');
   console.log('  - Weekly digest on Mondays at 8 AM');
   console.log(`✓ ${cache.transcripts?.length || 0} Lenny's Podcast transcripts loaded`);

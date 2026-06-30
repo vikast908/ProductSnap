@@ -15,6 +15,12 @@ client/node_modules/
 # Database files (may contain user data)
 content-aggregator.json
 
+# Semantic RAG vector index (large binary — rebuild with scripts/build-rag-index.js).
+# Comment this out if you prefer to commit the prebuilt index for turnkey deploys.
+rag-index/
+.rag-cache/
+scratch-rag-index-test/
+
 # Build outputs
 client/dist/
 dist/

@@ -11,10 +11,13 @@ export function LoginButton({ variant = 'default', size = 'default', className =
       size={size}
       onClick={loginWithGoogle}
       disabled={loading}
-      className={className}
+      className={`flex-shrink-0 ${className}`}
+      aria-label="Sign in with Google"
     >
-      <LogIn className="h-4 w-4 mr-2" />
-      Sign in with Google
+      <LogIn className="h-4 w-4 sm:mr-2" />
+      {/* Full label on >=sm; compact on phones so the CTA never clips */}
+      <span className="hidden sm:inline">Sign in with Google</span>
+      <span className="sm:hidden">Sign in</span>
     </Button>
   )
 }
