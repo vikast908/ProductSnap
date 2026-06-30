@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { ChatMessage } from './ChatMessage'
 import {
   Send, Square, Loader2, MessageSquare, X, Minimize2, Maximize2,
-  Settings, AlertCircle, Plus, Search as SearchIcon, BookOpen, PenLine, RotateCcw, ArrowDown
+  Settings, AlertCircle, Plus, Search as SearchIcon, BookOpen, PenLine, RotateCcw, ArrowDown, Zap
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
@@ -22,6 +22,17 @@ const STAGE_META = {
 
 // Generic, always-useful follow-ups shown after an answer to keep the conversation moving.
 const FOLLOWUPS = ['Give a concrete example', 'How does this differ for B2B vs B2C?', 'What are the main risks or trade-offs?', 'Summarize the key takeaways']
+
+// Animated "typing" loader (moving dots) shown while the assistant is working.
+function TypingDots({ className = '' }) {
+  return (
+    <span className={`inline-flex items-center gap-1 ${className}`} aria-hidden="true">
+      <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.3s]" />
+      <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.15s]" />
+      <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce" />
+    </span>
+  )
+}
 
 // In-chat model switcher. Lists the provider's models and, for providers that
 // allow it (OpenRouter / custom), lets the user free-type any current model id.
@@ -75,8 +86,8 @@ function StageRow({ msg }) {
   return (
     <div className="flex gap-3 justify-start">
       <div className="flex-shrink-0">
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-          <Loader2 className="h-4 w-4 text-white animate-spin" />
+        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+          <Loader2 className="h-4 w-4 text-primary-foreground animate-spin" />
         </div>
       </div>
       <div className="max-w-[85%] space-y-2">
@@ -84,6 +95,7 @@ function StageRow({ msg }) {
           <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status" aria-live="polite">
             <Icon className="h-3.5 w-3.5" />
             <span>{meta.label(msg)}</span>
+            <TypingDots className="ml-0.5 text-muted-foreground" />
           </div>
           {msg.keywords?.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
@@ -381,8 +393,8 @@ export function ChatBox({ isFloating = false, onClose }) {
       <CardHeader className="pb-3 border-b flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-primary" />
-            <CardTitle className="text-lg">AI Chat</CardTitle>
+            <Zap className="h-5 w-5 text-primary" />
+            <CardTitle className="text-lg">Snappy</CardTitle>
           </div>
           <div className="flex items-center gap-1">
             {messages.length > 0 && (

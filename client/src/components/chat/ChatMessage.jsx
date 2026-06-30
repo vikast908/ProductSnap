@@ -7,6 +7,17 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Bot, User, ExternalLink, Mic, FileText, Copy, Check, ChevronDown, ChevronUp, Circle, RotateCcw, ThumbsUp, ThumbsDown } from 'lucide-react'
 import { useState } from 'react'
 
+// Animated "typing" loader (moving dots) shown while a response streams.
+function TypingDots({ className = '' }) {
+  return (
+    <span className={`inline-flex items-center gap-1 ${className}`} aria-hidden="true">
+      <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.3s]" />
+      <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.15s]" />
+      <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce" />
+    </span>
+  )
+}
+
 const REL_LABEL = { high: 'High relevance', medium: 'Medium relevance', low: 'Low relevance' }
 
 function RelevanceIndicator({ relevance }) {
@@ -189,8 +200,8 @@ export function ChatMessage({ message, user, onRegenerate, onFeedback }) {
     <div className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
       {isAssistant && (
         <div className="flex-shrink-0">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-            <Bot className="h-4 w-4 text-white" />
+          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+            <Bot className="h-4 w-4 text-primary-foreground" />
           </div>
         </div>
       )}
@@ -230,7 +241,7 @@ export function ChatMessage({ message, user, onRegenerate, onFeedback }) {
                 {message.content || ''}
               </ReactMarkdown>
               {message.status === 'streaming' && (
-                <span className="inline-block w-2 h-4 -mb-0.5 ml-0.5 bg-primary/70 align-middle animate-pulse" aria-hidden="true" />
+                <TypingDots className="ml-1.5 align-middle text-primary/70" />
               )}
             </div>
           )}
