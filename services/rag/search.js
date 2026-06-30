@@ -12,6 +12,19 @@ function escapeRegExp(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// Strip HTML tags + decode common entities so snippets read as plain text
+// (article content is frequently raw HTML).
+function stripHtml(s) {
+  if (!s) return '';
+  return String(s)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"').replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function calculateRelevance(text, keywords) {
   if (!text) return 0;
   let score = 0;
@@ -79,7 +92,7 @@ function getRelevantSnippet(content, keywords, snippetLength = 500) {
   let end = Math.min(content.length, start + snippetLength);
   while (start > 0 && content[start - 1] !== ' ') start--;
   while (end < content.length && content[end] !== ' ') end++;
-  let snippet = content.slice(start, end).trim();
+  let snippet = stripHtml(content.slice(start, end));
   if (start > 0) snippet = '...' + snippet;
   if (end < content.length) snippet = snippet + '...';
   return snippet;
@@ -91,7 +104,7 @@ function sliceSnippet(content, s, l, max = 800) {
   let end = Math.min(content.length, start + Math.min(l | 0 || max, max));
   while (start > 0 && content[start - 1] !== ' ') start--;
   while (end < content.length && content[end] !== ' ') end++;
-  let snippet = content.slice(start, end).trim();
+  let snippet = stripHtml(content.slice(start, end));
   if (start > 0) snippet = '...' + snippet;
   if (end < content.length) snippet = snippet + '...';
   return snippet;

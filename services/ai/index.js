@@ -65,11 +65,12 @@ const PROVIDERS = [
     docsUrl: 'https://openrouter.ai/keys',
     keyPlaceholder: 'sk-or-...',
     keyHint: 'Starts with "sk-or-"',
-    // Broadly-available default; OpenRouter retires slugs over time, so users can
-    // also free-type any current model id (allowCustomModel).
-    defaultModel: 'openai/gpt-4o',
+    // OpenRouter retires slugs over time, so users can also free-type any current
+    // model id (allowCustomModel). Default to a fast, current model.
+    defaultModel: 'deepseek/deepseek-v4-flash',
     allowCustomModel: true,
     models: [
+      { id: 'deepseek/deepseek-v4-flash', name: 'DeepSeek V4 Flash', context: '1M', description: 'Fast MoE model (284B total / 13B active) via OpenRouter.' },
       { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', context: '200K', description: 'Anthropic Claude via OpenRouter.' },
       { id: 'openai/gpt-4o', name: 'GPT-4o', context: '128K', description: 'OpenAI GPT-4o via OpenRouter.' },
       { id: 'google/gemini-flash-1.5', name: 'Gemini Flash 1.5', context: '1M', description: 'Google Gemini Flash via OpenRouter.' },
