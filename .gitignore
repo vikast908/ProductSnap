@@ -15,11 +15,14 @@ client/node_modules/
 # Database files (may contain user data)
 content-aggregator.json
 
-# Semantic RAG vector index (large binary — rebuild with scripts/build-rag-index.js).
-# Comment this out if you prefer to commit the prebuilt index for turnkey deploys.
-rag-index/
+# Semantic RAG: the prebuilt PODCAST index in rag-index/ IS committed so semantic
+# search works on deploy (transcript IDs are stable; articles use the keyword arm
+# + per-environment reindex). Rebuild/extend with scripts/build-rag-index.js.
 .rag-cache/
 scratch-rag-index-test/
+
+# Playwright MCP scratch artifacts
+.playwright-mcp/
 
 # Build outputs
 client/dist/

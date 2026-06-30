@@ -42,7 +42,13 @@ async function syncIndex(db, { onLog, embedder, indexStore } = {}) {
   const indexedIds = idx.parentIdsByType('article');
 
   const toRemove = [...indexedIds].filter(id => !liveIds.has(id));
-  const toAdd = liveArticles.filter(a => !indexedIds.has(a.id));
+  // Cap additions per run so a cold start (or an environment with regenerated
+  // article IDs, e.g. an ephemeral Railway DB) can't trigger a single huge
+  // embedding storm. Remaining articles are picked up on the next daily run.
+  const MAX_ADD = Math.max(1, parseInt(process.env.REINDEX_MAX_ARTICLES || '500', 10));
+  const pendingAdd = liveArticles.filter(a => !indexedIds.has(a.id));
+  const toAdd = pendingAdd.length > MAX_ADD ? pendingAdd.slice(0, MAX_ADD) : pendingAdd;
+  const deferredAdd = pendingAdd.length - toAdd.length;
 
   let removedChunks = 0;
   if (toRemove.length) removedChunks = idx.removeParents(toRemove);
@@ -67,9 +73,10 @@ async function syncIndex(db, { onLog, embedder, indexStore } = {}) {
   }
 
   if (removedChunks || addedChunks) idx.persist();
-  const summary = `+${toAdd.length} articles (${addedChunks} chunks), -${toRemove.length} articles (${removedChunks} chunks)`;
+  const deferNote = deferredAdd > 0 ? `, ${deferredAdd} deferred to next run` : '';
+  const summary = `+${toAdd.length} articles (${addedChunks} chunks), -${toRemove.length} articles (${removedChunks} chunks)${deferNote}`;
   if (onLog) onLog(summary);
-  return { addedArticles: toAdd.length, addedChunks, removedParents: toRemove.length, removedChunks };
+  return { addedArticles: toAdd.length, addedChunks, removedParents: toRemove.length, removedChunks, deferredAdd };
 }
 
 module.exports = { syncIndex, semanticReady };
