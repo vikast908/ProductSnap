@@ -65,7 +65,9 @@ const PROVIDERS = [
     docsUrl: 'https://openrouter.ai/keys',
     keyPlaceholder: 'sk-or-...',
     keyHint: 'Starts with "sk-or-"',
-    defaultModel: 'anthropic/claude-3.5-sonnet',
+    // Broadly-available default; OpenRouter retires slugs over time, so users can
+    // also free-type any current model id (allowCustomModel).
+    defaultModel: 'openai/gpt-4o',
     allowCustomModel: true,
     models: [
       { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', context: '200K', description: 'Anthropic Claude via OpenRouter.' },

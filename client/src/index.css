@@ -442,3 +442,15 @@
 .chat-markdown kbd {
   @apply px-1.5 py-0.5 text-xs font-mono bg-muted border border-border rounded shadow-sm;
 }
+
+/* Accessibility: honor reduced-motion — neutralize non-essential animation/transitions. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

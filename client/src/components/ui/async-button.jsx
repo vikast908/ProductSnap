@@ -35,10 +35,10 @@ export function AsyncButton({ onClick, children, successLabel, disabled, ...prop
       onClick={handleClick}
       aria-busy={state === 'pending'}
     >
-      <span className="inline-flex items-center justify-center gap-2 relative">
+      <span className="inline-flex items-center justify-center gap-2 whitespace-nowrap">
         {state === 'pending' && <Loader2 className="h-4 w-4 animate-spin" />}
         {state === 'success' && <Check className="h-4 w-4 text-green-500" />}
-        <span>{state === 'success' && successLabel ? successLabel : children}</span>
+        {state === 'success' && successLabel ? successLabel : children}
       </span>
     </Button>
   )

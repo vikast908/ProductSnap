@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/components/ui/toast'
@@ -25,6 +25,9 @@ export function SettingsPage() {
   const [verify, setVerify] = useState({}) // { [providerId]: { status, msg } }
   const [saving, setSaving] = useState(false)
   const [savingKeys, setSavingKeys] = useState(false)
+  const [replacing, setReplacing] = useState({}) // providers whose key field is open for replacement
+  const [removed, setRemoved] = useState({}) // providers whose key was removed this session (optimistic)
+  const savedPrefsRef = useRef(null) // snapshot of last-saved preferences (for the unsaved-changes bar)
 
   useEffect(() => {
     if (!loading && !isAuthenticated) navigate('/')
@@ -58,11 +61,19 @@ export function SettingsPage() {
     })
   }, [providers])
 
+  // Snapshot the baseline once model defaults are filled, so the unsaved-changes
+  // bar reflects only the user's own edits (not the default-filling).
+  useEffect(() => {
+    if (!providers.length || savedPrefsRef.current !== null) return
+    const allFilled = providers.every(p => !p.defaultModel || preferences[`${p.id}Model`])
+    if (allFilled) savedPrefsRef.current = JSON.stringify(preferences)
+  }, [providers, preferences])
+
   const handleSavePreferences = async () => {
     setSaving(true)
     const result = await updateSettings(preferences)
     setSaving(false)
-    if (result.success) toast({ variant: 'success', title: 'Preferences saved' })
+    if (result.success) { savedPrefsRef.current = JSON.stringify(preferences); toast({ variant: 'success', title: 'Preferences saved' }) }
     else toast({ variant: 'error', title: 'Could not save preferences', description: result.error })
   }
 
@@ -80,6 +91,7 @@ export function SettingsPage() {
     setSavingKeys(false)
     if (result.success) {
       setApiKeys({})
+      setReplacing({})
       toast({ variant: 'success', title: 'API keys saved', description: 'Encrypted and stored securely.' })
     } else {
       toast({ variant: 'error', title: 'Could not save keys', description: result.error })
@@ -113,6 +125,25 @@ export function SettingsPage() {
   }
 
   const toggleShowKey = (id) => setShowKeys(prev => ({ ...prev, [id]: !prev[id] }))
+
+  const removeKey = async (providerId) => {
+    try {
+      const res = await authFetch(`/api/settings/api-keys/${providerId}`, { method: 'DELETE' })
+      if (res.ok) {
+        setRemoved(prev => ({ ...prev, [providerId]: true }))
+        setReplacing(prev => ({ ...prev, [providerId]: false }))
+        setApiKeys(prev => ({ ...prev, [providerId]: '' }))
+        setVerify(prev => ({ ...prev, [providerId]: undefined }))
+        toast({ variant: 'success', title: 'API key removed' })
+      } else {
+        toast({ variant: 'error', title: 'Could not remove key' })
+      }
+    } catch {
+      toast({ variant: 'error', title: 'Could not remove key' })
+    }
+  }
+
+  const prefsDirty = savedPrefsRef.current !== null && JSON.stringify(preferences) !== savedPrefsRef.current
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen"><Loader2 className="h-8 w-8 animate-spin" /></div>
@@ -168,30 +199,41 @@ export function SettingsPage() {
                     {providers.map(p => {
                       const modelKey = `${p.id}Model`
                       const hasList = p.models && p.models.length > 0
+                      const current = preferences[modelKey] ?? p.defaultModel ?? ''
+                      const inList = !!p.models?.some(m => m.id === current)
+                      // Free-type when there's no list, or the provider allows custom
+                      // models and the current value isn't a listed preset.
+                      const useInput = !hasList || (p.allowCustomModel && !inList)
                       return (
                         <div key={p.id} className="space-y-2">
                           <Label htmlFor={modelKey}>{p.name} model</Label>
-                          {hasList ? (
-                            <Select value={preferences[modelKey] || p.defaultModel} onValueChange={(v) => setPreferences(prev => ({ ...prev, [modelKey]: v }))}>
+                          {useInput ? (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                id={modelKey}
+                                placeholder="Model id, e.g. gpt-4o or deepseek/deepseek-chat"
+                                value={preferences[modelKey] ?? ''}
+                                onChange={(e) => setPreferences(prev => ({ ...prev, [modelKey]: e.target.value }))}
+                              />
+                              {hasList && (
+                                <button type="button" className="text-xs text-primary hover:underline flex-shrink-0"
+                                  onClick={() => setPreferences(prev => ({ ...prev, [modelKey]: p.defaultModel || p.models[0].id }))}>
+                                  choose from list
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <Select value={current} onValueChange={(v) => setPreferences(prev => ({ ...prev, [modelKey]: v === '__custom__' ? '' : v }))}>
                               <SelectTrigger id={modelKey}><SelectValue placeholder="Select model" /></SelectTrigger>
                               <SelectContent>
                                 {p.models.map(m => (
-                                  <SelectItem key={m.id} value={m.id}>
-                                    <div className="flex flex-col">
-                                      <span>{m.name} <span className="text-xs text-muted-foreground">· {m.context}</span></span>
-                                      <span className="text-xs text-muted-foreground">{m.description}</span>
-                                    </div>
+                                  <SelectItem key={m.id} value={m.id} description={m.description}>
+                                    {m.name}{m.context ? <span className="text-muted-foreground"> · {m.context}</span> : null}
                                   </SelectItem>
                                 ))}
+                                {p.allowCustomModel && <SelectItem value="__custom__">Custom model…</SelectItem>}
                               </SelectContent>
                             </Select>
-                          ) : (
-                            <Input
-                              id={modelKey}
-                              placeholder="Model name, e.g. gpt-4o or llama-3.1-8b"
-                              value={preferences[modelKey] || ''}
-                              onChange={(e) => setPreferences(prev => ({ ...prev, [modelKey]: e.target.value }))}
-                            />
                           )}
                         </div>
                       )
@@ -213,7 +255,7 @@ export function SettingsPage() {
                   </div>
 
                   <AsyncButton onClick={handleSavePreferences} successLabel="Saved" disabled={saving}>
-                    <Save className="h-4 w-4 mr-2" /> Save Preferences
+                    <Save className="h-4 w-4" /> Save Preferences
                   </AsyncButton>
                 </CardContent>
               </Card>
@@ -228,72 +270,93 @@ export function SettingsPage() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {providers.map((p, i) => {
-                    const configured = user?.settings?.hasApiKeys?.[p.id]
+                    const configured = !!user?.settings?.hasApiKeys?.[p.id] && !removed[p.id]
                     const preview = user?.settings?.keyPreviews?.[p.id]
                     const v = verify[p.id]
+                    const showInput = !configured || replacing[p.id]
                     return (
                       <div key={p.id}>
                         {i > 0 && <Separator className="mb-6" />}
                         <div className="space-y-2">
                           <div className="flex items-center justify-between gap-2 flex-wrap">
                             <Label htmlFor={`${p.id}-key`}>{p.name}</Label>
-                            <div className="flex items-center gap-2">
-                              {configured && (
-                                <>
-                                  <span className="text-xs text-muted-foreground font-mono">{preview || '••••'}</span>
-                                  <Badge variant="secondary" className="text-green-600"><Check className="h-3 w-3 mr-1" /> Configured</Badge>
-                                </>
-                              )}
-                            </div>
+                            {configured && (
+                              <Badge variant="secondary" className="text-green-600"><Check className="h-3 w-3 mr-1" /> Configured</Badge>
+                            )}
                           </div>
                           <p className="text-xs text-muted-foreground">{p.description}</p>
 
-                          {p.requiresBaseUrl && (
-                            <Input
-                              placeholder="Base URL, e.g. http://localhost:11434/v1"
-                              value={preferences.customBaseUrl || ''}
-                              onChange={(e) => setPreferences(prev => ({ ...prev, customBaseUrl: e.target.value }))}
-                              className="mb-1"
-                              aria-label="Custom base URL"
-                            />
+                          {/* Configured + not replacing → settled credential (no confusing blank field). */}
+                          {configured && !showInput && (
+                            <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/40 px-3 py-2">
+                              <span className="text-xs text-muted-foreground font-mono truncate">{preview || '••••••••'}</span>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <Button type="button" variant="outline" size="sm" className="h-7"
+                                  onClick={() => setReplacing(prev => ({ ...prev, [p.id]: true }))}>
+                                  Replace
+                                </Button>
+                                <Button type="button" variant="ghost" size="sm" className="h-7 text-destructive hover:text-destructive"
+                                  onClick={() => removeKey(p.id)}>
+                                  Remove
+                                </Button>
+                              </div>
+                            </div>
                           )}
 
-                          <div className="flex gap-2">
-                            <div className="relative flex-1">
-                              <Input
-                                id={`${p.id}-key`}
-                                type={showKeys[p.id] ? 'text' : 'password'}
-                                placeholder={configured ? 'Enter new key to replace…' : p.keyPlaceholder}
-                                value={apiKeys[p.id] || ''}
-                                onChange={(e) => { setApiKeys(prev => ({ ...prev, [p.id]: e.target.value })); setVerify(prev => ({ ...prev, [p.id]: undefined })) }}
-                              />
-                              <Button type="button" variant="ghost" size="icon" className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7"
-                                onClick={() => toggleShowKey(p.id)} aria-label={showKeys[p.id] ? 'Hide key' : 'Show key'}>
-                                {showKeys[p.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                              </Button>
-                            </div>
-                            <AsyncButton variant="outline" onClick={() => verifyKey(p.id)} disabled={!apiKeys[p.id]}>
-                              Verify
-                            </AsyncButton>
-                          </div>
-
-                          <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <p className="text-xs text-muted-foreground">
-                              {p.keyHint ? `${p.keyHint} · ` : ''}
-                              <a href={p.docsUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-0.5">
-                                Get a key <ExternalLink className="h-3 w-3" />
-                              </a>
-                            </p>
-                            {v?.status === 'valid' && <span className="text-xs text-green-600 inline-flex items-center gap-1"><Check className="h-3 w-3" /> Key works</span>}
-                            {v?.status === 'invalid' && <span className="text-xs text-destructive inline-flex items-center gap-1"><AlertCircle className="h-3 w-3" /> {v.msg || 'Invalid'}</span>}
-                          </div>
+                          {showInput && (
+                            <>
+                              {p.requiresBaseUrl && (
+                                <Input
+                                  placeholder="Base URL, e.g. http://localhost:11434/v1"
+                                  value={preferences.customBaseUrl || ''}
+                                  onChange={(e) => setPreferences(prev => ({ ...prev, customBaseUrl: e.target.value }))}
+                                  className="mb-1"
+                                  aria-label="Custom base URL"
+                                />
+                              )}
+                              <div className="flex gap-2">
+                                <div className="relative flex-1">
+                                  <Input
+                                    id={`${p.id}-key`}
+                                    type={showKeys[p.id] ? 'text' : 'password'}
+                                    placeholder={p.keyPlaceholder}
+                                    value={apiKeys[p.id] || ''}
+                                    onChange={(e) => { setApiKeys(prev => ({ ...prev, [p.id]: e.target.value })); setVerify(prev => ({ ...prev, [p.id]: undefined })) }}
+                                  />
+                                  <Button type="button" variant="ghost" size="icon" className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7"
+                                    onClick={() => toggleShowKey(p.id)} aria-label={showKeys[p.id] ? 'Hide key' : 'Show key'}>
+                                    {showKeys[p.id] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                  </Button>
+                                </div>
+                                <AsyncButton variant="outline" onClick={() => verifyKey(p.id)} disabled={!apiKeys[p.id]}>
+                                  Verify
+                                </AsyncButton>
+                                {configured && (
+                                  <Button type="button" variant="ghost" size="sm" className="h-10 flex-shrink-0"
+                                    onClick={() => { setReplacing(prev => ({ ...prev, [p.id]: false })); setApiKeys(prev => ({ ...prev, [p.id]: '' })); setVerify(prev => ({ ...prev, [p.id]: undefined })) }}>
+                                    Cancel
+                                  </Button>
+                                )}
+                              </div>
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <p className="text-xs text-muted-foreground">
+                                  {p.keyHint ? `${p.keyHint} · ` : ''}
+                                  <a href={p.docsUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-0.5">
+                                    Get a key <ExternalLink className="h-3 w-3" />
+                                  </a>
+                                </p>
+                                {v?.status === 'valid' && <span className="text-xs text-green-600 inline-flex items-center gap-1"><Check className="h-3 w-3" /> Key works</span>}
+                                {v?.status === 'invalid' && <span className="text-xs text-destructive inline-flex items-center gap-1"><AlertCircle className="h-3 w-3" /> {v.msg || 'Invalid'}</span>}
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     )
                   })}
 
                   <AsyncButton onClick={handleSaveApiKeys} successLabel="Saved" disabled={savingKeys}>
-                    <Save className="h-4 w-4 mr-2" /> Save API Keys
+                    <Save className="h-4 w-4" /> Save API Keys
                   </AsyncButton>
                 </CardContent>
               </Card>
@@ -301,6 +364,20 @@ export function SettingsPage() {
           </Tabs>
         </div>
       </div>
+
+      {prefsDirty && (
+        <div className="fixed bottom-0 inset-x-0 z-40 border-t bg-background/95 backdrop-blur px-4 py-3">
+          <div className="container max-w-4xl mx-auto flex items-center justify-between gap-3">
+            <span className="text-sm text-muted-foreground">You have unsaved preference changes.</span>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => { if (savedPrefsRef.current) setPreferences(JSON.parse(savedPrefsRef.current)) }}>Discard</Button>
+              <AsyncButton onClick={handleSavePreferences} successLabel="Saved" disabled={saving}>
+                <Save className="h-4 w-4" /> Save
+              </AsyncButton>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

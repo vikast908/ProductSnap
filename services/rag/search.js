@@ -379,6 +379,7 @@ function relevanceRank(r) { return r === 'high' ? 3 : r === 'medium' ? 2 : 1; }
 function formatSources(results) {
   return results.map((result, index) => ({
     index: index + 1,
+    id: result.id,
     type: result.type,
     title: result.title,
     source: result.source,
@@ -386,7 +387,9 @@ function formatSources(results) {
     guest: result.guest || null,
     relevance: result.relevance || 'medium',
     normalizedScore: result.normalizedScore || 0,
-    tier: result.tier || 3
+    tier: result.tier || 3,
+    // Short evidence snippet so the UI can show *why* a source was cited.
+    snippet: result.snippet ? String(result.snippet).slice(0, 280) : ''
   }));
 }
 

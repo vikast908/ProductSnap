@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { ChatMessage } from './ChatMessage'
 import {
   Send, Square, Loader2, MessageSquare, X, Minimize2, Maximize2,
-  Settings, AlertCircle, Plus, Search as SearchIcon, BookOpen, PenLine, RotateCcw
+  Settings, AlertCircle, Plus, Search as SearchIcon, BookOpen, PenLine, RotateCcw, ArrowDown
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
@@ -18,6 +18,54 @@ const STAGE_META = {
   searching: { icon: SearchIcon, label: (m) => (m.semanticUsed ? 'Searching (semantic + keyword)…' : 'Searching the knowledge base…') },
   reading: { icon: BookOpen, label: (m) => `Found ${m.totalFound ?? ''} sources · reading the most relevant…` },
   writing: { icon: PenLine, label: () => 'Writing…' }
+}
+
+// Generic, always-useful follow-ups shown after an answer to keep the conversation moving.
+const FOLLOWUPS = ['Give a concrete example', 'How does this differ for B2B vs B2C?', 'What are the main risks or trade-offs?', 'Summarize the key takeaways']
+
+// In-chat model switcher. Lists the provider's models and, for providers that
+// allow it (OpenRouter / custom), lets the user free-type any current model id.
+function ModelPicker({ providerObj, value, onChange }) {
+  const models = providerObj?.models || []
+  const allowCustom = !!providerObj?.allowCustomModel
+  const inList = models.some(m => m.id === value)
+  const [custom, setCustom] = useState(false)
+  const [draft, setDraft] = useState(value || '')
+  useEffect(() => { setDraft(value || '') }, [value])
+
+  const useInput = custom || models.length === 0 || (!inList && !!value)
+  if (useInput) {
+    const commit = () => { const v = draft.trim(); if (v) onChange(v) }
+    return (
+      <div className="flex items-center gap-1 flex-1 min-w-0">
+        <Input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commit() } }}
+          placeholder="model id, e.g. deepseek/deepseek-chat"
+          aria-label="Model id"
+          className="h-7 text-xs"
+        />
+        {models.length > 0 && (
+          <button type="button" className="text-[11px] text-primary hover:underline flex-shrink-0" onClick={() => { setCustom(false); if (!inList && models[0]) onChange(models[0].id) }}>list</button>
+        )}
+      </div>
+    )
+  }
+  return (
+    <Select value={value} onValueChange={(v) => v === '__custom__' ? setCustom(true) : onChange(v)}>
+      <SelectTrigger className="h-7 text-xs flex-1 min-w-0"><SelectValue placeholder="Select model" /></SelectTrigger>
+      <SelectContent>
+        {models.map(m => (
+          <SelectItem key={m.id} value={m.id} description={m.description}>
+            {m.name}{m.context ? <span className="text-muted-foreground"> · {m.context}</span> : null}
+          </SelectItem>
+        ))}
+        {allowCustom && <SelectItem value="__custom__">Custom model…</SelectItem>}
+      </SelectContent>
+    </Select>
+  )
 }
 
 // Pre-token progress: which stage the assistant turn is in, plus the keywords it matched.
@@ -33,7 +81,7 @@ function StageRow({ msg }) {
       </div>
       <div className="max-w-[85%] space-y-2">
         <div className="rounded-2xl px-4 py-3 bg-muted/60 border border-border/50">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status" aria-live="polite">
             <Icon className="h-3.5 w-3.5" />
             <span>{meta.label(msg)}</span>
           </div>
@@ -51,7 +99,7 @@ function StageRow({ msg }) {
 }
 
 export function ChatBox({ isFloating = false, onClose }) {
-  const { user, isAuthenticated, authFetch } = useAuth()
+  const { user, isAuthenticated, authFetch, updateSettings } = useAuth()
   const navigate = useNavigate()
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
@@ -60,19 +108,57 @@ export function ChatBox({ isFloating = false, onClose }) {
   const [provider, setProvider] = useState(user?.settings?.preferences?.defaultAIProvider || 'openai')
   const [providers, setProviders] = useState([])
   const [minimized, setMinimized] = useState(false)
+  const [model, setModel] = useState('')
+  const [atBottom, setAtBottom] = useState(true)
+
+  const getViewport = () => scrollRef.current?.querySelector('[data-radix-scroll-area-viewport]')
 
   const scrollRef = useRef(null)
   const inputRef = useRef(null)
   const abortRef = useRef(null)
   const idRef = useRef(0)
+  const cardRef = useRef(null)
   const messagesRef = useRef([])
   messagesRef.current = messages
 
   const mkId = () => `m${idRef.current++}`
 
   useEffect(() => { if (isAuthenticated) fetchProviders() }, [isAuthenticated])
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, [messages])
+  // Autoscroll only when the user is already at the bottom — no yank-back if they scroll up to read.
+  useEffect(() => { const vp = getViewport(); if (vp && atBottom) vp.scrollTop = vp.scrollHeight }, [messages, atBottom])
   useEffect(() => { if (!minimized && !streaming) inputRef.current?.focus() }, [minimized, streaming])
+
+  // Track whether the viewport is near the bottom (drives autoscroll + jump-to-latest).
+  useEffect(() => {
+    const vp = getViewport(); if (!vp) return
+    const onScroll = () => setAtBottom(vp.scrollHeight - vp.scrollTop - vp.clientHeight < 80)
+    vp.addEventListener('scroll', onScroll, { passive: true })
+    return () => vp.removeEventListener('scroll', onScroll)
+  }, [minimized])
+
+  // Keep the active model synced to the selected provider (saved pref → provider default).
+  useEffect(() => {
+    const po = providers.find(p => p.id === provider)
+    setModel(user?.settings?.preferences?.[`${provider}Model`] || po?.defaultModel || '')
+  }, [provider, providers, user])
+
+  // Persist the conversation locally so a refresh doesn't lose it.
+  const storeKey = user?.id ? `ps_chat_${user.id}` : null
+  useEffect(() => {
+    if (!storeKey) return
+    try {
+      const saved = JSON.parse(localStorage.getItem(storeKey) || 'null')
+      if (Array.isArray(saved) && saved.length) {
+        setMessages(saved)
+        const maxId = saved.reduce((mx, m) => { const n = parseInt(String(m.id).replace('m', ''), 10); return isNaN(n) ? mx : Math.max(mx, n) }, 0)
+        idRef.current = maxId + 1
+      }
+    } catch {}
+  }, [storeKey])
+  useEffect(() => {
+    if (!storeKey) return
+    try { localStorage.setItem(storeKey, JSON.stringify(messages.filter(m => m.status !== 'streaming').slice(-40))) } catch {}
+  }, [messages, storeKey])
 
   const fetchProviders = async () => {
     try {
@@ -93,6 +179,13 @@ export function ChatBox({ isFloating = false, onClose }) {
     setMessages(prev => prev.map(m => m.id === id ? { ...m, ...(typeof patch === 'function' ? patch(m) : patch) } : m))
   }, [])
 
+  const handleModelChange = (m) => {
+    setModel(m)
+    // Persist so the choice sticks across reloads and Settings stays in sync (fire-and-forget).
+    if (updateSettings && m) updateSettings({ ...(user?.settings?.preferences || {}), [`${provider}Model`]: m })
+  }
+  const autoGrow = (el) => { if (!el) return; el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 128) + 'px' }
+
   // Build the last-10 completed-turn history for context.
   const buildHistory = () => messagesRef.current
     .filter(m => (m.role === 'user' || m.role === 'assistant') && m.content && m.status !== 'error')
@@ -109,7 +202,7 @@ export function ChatBox({ isFloating = false, onClose }) {
       const res = await authFetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, provider, history }),
+        body: JSON.stringify({ message: text, provider, model, history }),
         signal: controller.signal
       })
 
@@ -198,10 +291,12 @@ export function ChatBox({ isFloating = false, onClose }) {
     }
   }
 
-  const sendMessage = () => {
-    const text = input.trim()
+  const sendText = (raw) => {
+    const text = (raw || '').trim()
     if (!text || streaming) return
     setInput('')
+    if (inputRef.current) inputRef.current.style.height = 'auto'
+    setAtBottom(true)
     const assistantId = mkId()
     const history = buildHistory()
     setMessages(prev => [
@@ -210,6 +305,32 @@ export function ChatBox({ isFloating = false, onClose }) {
       { id: assistantId, role: 'assistant', content: '', status: 'streaming', stage: 'searching', sources: [], _src: text }
     ])
     runStream(assistantId, text, history)
+  }
+  const sendMessage = () => sendText(input)
+
+  // Best-effort answer feedback (👍/👎); attaches the preceding question for context.
+  const sendFeedback = useCallback(async (msg, rating) => {
+    try {
+      const all = messagesRef.current
+      const idx = all.findIndex(m => m.id === msg.id)
+      const userMsg = idx > 0 ? all[idx - 1] : null
+      await authFetch('/api/chat/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating, provider: msg.provider, model: msg.model, query: userMsg?.content || '', answer: msg.content || '' })
+      })
+    } catch { /* feedback is best-effort — never surface an error */ }
+  }, [authFetch])
+
+  // Keep keyboard focus inside the floating widget while it's open (a11y).
+  const onTrapKeyDown = (e) => {
+    if (e.key !== 'Tab' || !isFloating || !cardRef.current) return
+    const list = Array.from(cardRef.current.querySelectorAll('button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])'))
+      .filter(el => !el.disabled && el.offsetParent !== null)
+    if (!list.length) return
+    const first = list[0], last = list[list.length - 1]
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
   }
 
   // Retry / regenerate: re-run the turn for an assistant message using the
@@ -242,6 +363,9 @@ export function ChatBox({ isFloating = false, onClose }) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       if (!streaming) sendMessage()
+    } else if (e.key === 'Escape' && streaming) {
+      e.preventDefault()
+      handleStop()
     }
   }
 
@@ -279,34 +403,42 @@ export function ChatBox({ isFloating = false, onClose }) {
           </div>
         </div>
         {!minimized && (
-          <div className="flex items-center gap-2 mt-2">
-            <Select value={provider} onValueChange={setProvider}>
-              <SelectTrigger className="w-[200px] h-8">
-                <SelectValue placeholder="Select AI" />
-              </SelectTrigger>
-              <SelectContent>
-                {providers.map(p => (
-                  <SelectItem key={p.id} value={p.id}>
-                    <div className="flex items-center gap-2">
-                      <span>{p.name}</span>
-                      {p.hasApiKey
-                        ? <Badge variant="outline" className="h-4 text-[10px]">Ready</Badge>
-                        : <Badge variant="outline" className="h-4 text-[10px] text-muted-foreground">No Key</Badge>}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('/settings')} title="Settings" aria-label="Settings">
-              <Settings className="h-4 w-4" />
-            </Button>
-          </div>
+          <>
+            <div className="flex items-center gap-2 mt-2">
+              <Select value={provider} onValueChange={setProvider}>
+                <SelectTrigger className="w-[200px] h-8">
+                  <SelectValue placeholder="Select AI" />
+                </SelectTrigger>
+                <SelectContent>
+                  {providers.map(p => (
+                    <SelectItem key={p.id} value={p.id}>
+                      <div className="flex items-center gap-2">
+                        <span>{p.name}</span>
+                        {p.hasApiKey
+                          ? <Badge variant="outline" className="h-4 text-[10px]">Ready</Badge>
+                          : <Badge variant="outline" className="h-4 text-[10px] text-muted-foreground">No Key</Badge>}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('/settings')} title="Settings" aria-label="Settings">
+                <Settings className="h-4 w-4" />
+              </Button>
+            </div>
+            {selectedProviderObj && (
+              <div className="flex items-center gap-2 mt-1.5">
+                <span className="text-[11px] text-muted-foreground flex-shrink-0">Model</span>
+                <ModelPicker providerObj={selectedProviderObj} value={model} onChange={handleModelChange} />
+              </div>
+            )}
+          </>
         )}
       </CardHeader>
 
       {!minimized && (
         <>
-          <CardContent className="flex-1 p-0 overflow-hidden">
+          <CardContent className="flex-1 p-0 overflow-hidden relative">
             <ScrollArea className="h-full p-4" ref={scrollRef}>
               {messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground py-8">
@@ -339,16 +471,21 @@ export function ChatBox({ isFloating = false, onClose }) {
                           message={msg}
                           user={user}
                           onRegenerate={msg.role === 'assistant' && msg.status === 'done' && !streaming ? () => rerun(msg.id) : undefined}
+                          onFeedback={msg.role === 'assistant' && msg.status === 'done' ? (rating) => sendFeedback(msg, rating) : undefined}
                         />
                         {msg.role === 'assistant' && msg.status === 'error' && (
                           <div className="ml-11 mt-1 flex items-center gap-2 text-sm text-destructive">
                             <AlertCircle className="h-4 w-4 flex-shrink-0" />
                             <span className="flex-1">{msg.error || 'Something went wrong.'}</span>
-                            {!streaming && (
+                            {!streaming && ['NO_ENDPOINTS', 'INVALID_KEY', 'NO_API_KEY', 'CUSTOM_NO_BASE_URL'].includes(msg.errorCode) ? (
+                              <Button variant="outline" size="sm" className="h-7" onClick={() => navigate('/settings')}>
+                                <Settings className="h-3 w-3 mr-1" /> {msg.errorCode === 'NO_ENDPOINTS' ? 'Change model' : 'Open settings'}
+                              </Button>
+                            ) : !streaming ? (
                               <Button variant="outline" size="sm" className="h-7" onClick={() => rerun(msg.id)}>
                                 <RotateCcw className="h-3 w-3 mr-1" /> Retry
                               </Button>
-                            )}
+                            ) : null}
                           </div>
                         )}
                         {msg.role === 'assistant' && msg.status === 'cancelled' && (
@@ -364,9 +501,27 @@ export function ChatBox({ isFloating = false, onClose }) {
                       </div>
                     )
                   })}
+                  {!streaming && messages.length > 0 && messages[messages.length - 1]?.role === 'assistant' && messages[messages.length - 1]?.status === 'done' && (
+                    <div className="flex flex-wrap gap-1.5 pt-1 ml-11">
+                      {FOLLOWUPS.map((f, i) => (
+                        <button key={i} onClick={() => sendText(f)} className="text-xs px-2.5 py-1 rounded-full border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
+                          {f}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </ScrollArea>
+            {!atBottom && messages.length > 0 && (
+              <button
+                onClick={() => { const vp = getViewport(); if (vp) vp.scrollTop = vp.scrollHeight; setAtBottom(true) }}
+                className="absolute left-1/2 -translate-x-1/2 bottom-3 z-10 inline-flex items-center gap-1 rounded-full border bg-background/95 px-3 py-1 text-xs text-muted-foreground shadow hover:text-foreground"
+                aria-label="Scroll to latest message"
+              >
+                <ArrowDown className="h-3 w-3" /> Latest
+              </button>
+            )}
           </CardContent>
 
           {error && (
@@ -391,15 +546,16 @@ export function ChatBox({ isFloating = false, onClose }) {
               </div>
             ) : (
               <div className="flex gap-2">
-                <Input
+                <textarea
                   ref={inputRef}
-                  placeholder="Ask about product management..."
+                  rows={1}
+                  placeholder="Ask about product management… (Shift+Enter for a new line)"
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) => { setInput(e.target.value); autoGrow(e.target) }}
                   onKeyDown={handleKeyDown}
                   disabled={streaming}
                   aria-label="Chat message"
-                  className="flex-1"
+                  className="flex-1 resize-none max-h-32 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 />
                 {streaming ? (
                   <Button onClick={handleStop} variant="outline" title="Stop generating" aria-label="Stop generating">
@@ -420,7 +576,7 @@ export function ChatBox({ isFloating = false, onClose }) {
 
   if (isFloating) {
     return (
-      <Card className={`fixed z-50 shadow-2xl flex flex-col ${
+      <Card ref={cardRef} onKeyDown={onTrapKeyDown} role="dialog" aria-label="AI chat" className={`fixed z-50 shadow-2xl flex flex-col ${
         minimized
           ? 'bottom-4 right-4 w-[280px] sm:w-[300px] h-auto'
           : 'bottom-0 right-0 sm:bottom-4 sm:right-4 w-full sm:w-[400px] h-[100dvh] sm:h-[600px] rounded-none sm:rounded-xl'

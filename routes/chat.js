@@ -20,9 +20,17 @@ function shouldRewrite(message) {
 }
 
 // Expand the question into up to 3 varied search queries to raise semantic recall.
-async function rewriteQuery(aiService, message, model) {
+// History-aware (CV1): a follow-up like "tell me more" or "what about pricing?"
+// is resolved against recent turns so retrieval doesn't treat it as a cold query.
+async function rewriteQuery(aiService, message, model, history = []) {
   try {
-    const prompt = `Rewrite this product-management question into up to 3 short, varied search queries (use synonyms and sub-topics) to maximize retrieval recall over a knowledge base. Return ONLY the queries, one per line — no numbering, no commentary.\n\nQuestion: ${message}`;
+    const convo = history.slice(-4)
+      .map(h => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.content.slice(0, 500)}`)
+      .join('\n');
+    const contextBlock = convo
+      ? `Conversation so far:\n${convo}\n\nResolve any references in the latest question (it/that/this/"the above") to concrete terms from the conversation.\n\n`
+      : '';
+    const prompt = `${contextBlock}Rewrite this product-management question into up to 3 short, varied, STANDALONE search queries (use synonyms and sub-topics) to maximize retrieval recall over a knowledge base. Return ONLY the queries, one per line — no numbering, no commentary.\n\nLatest question: ${message}`;
     const resp = await aiService.chat(prompt, '', [], model);
     const lines = (resp.content || '')
       .split('\n')
@@ -92,7 +100,7 @@ function createChatRoutes(db, cache) {
 
   // Streaming chat endpoint with RAG (Server-Sent Events)
   router.post('/', authenticateToken, async (req, res) => {
-    const { message, provider, history = [] } = req.body;
+    const { message, provider, model: requestedModel, history = [] } = req.body;
 
     // --- Pre-stream validation (plain JSON errors; status codes matter here) ---
     const invalid = validateChatBody({ message, provider, history });
@@ -126,7 +134,11 @@ function createChatRoutes(db, cache) {
       });
     }
 
-    const selectedModel = prefs[`${selectedProvider}Model`] || getProviderDefaultModel(selectedProvider);
+    // Model precedence: explicit per-request model (from the in-chat switcher) →
+    // saved preference → provider default. Validated to a sane id shape.
+    const cleanRequested = (typeof requestedModel === 'string' && /^[\w./:-]{1,200}$/.test(requestedModel.trim()))
+      ? requestedModel.trim() : null;
+    const selectedModel = cleanRequested || prefs[`${selectedProvider}Model`] || getProviderDefaultModel(selectedProvider);
 
     // --- Commit to SSE from here on ---
     res.writeHead(200, {
@@ -165,11 +177,14 @@ function createChatRoutes(db, cache) {
       });
       const userFiles = db.get('userFiles').filter({ userId: req.user.id }).value() || [];
 
-      // Stage 0 (optional): query rewriting for semantic recall.
+      // Stage 0 (optional): query rewriting for semantic recall. Always rewrite
+      // when there's prior context (so follow-ups get contextualized), else only
+      // for non-trivial questions.
       let queries = [message];
-      if (embeddings.isEnabled() && shouldRewrite(message)) {
+      const isFollowUp = history.length > 0 && message.trim().split(/\s+/).length >= 2;
+      if (embeddings.isEnabled() && (shouldRewrite(message) || isFollowUp)) {
         send('stage', { stage: 'rewriting' });
-        queries = await rewriteQuery(aiService, message, selectedModel);
+        queries = await rewriteQuery(aiService, message, selectedModel, history);
         if (clientGone) return finish();
       }
 
@@ -240,6 +255,7 @@ function createChatRoutes(db, cache) {
       let code = 'AI_API_ERROR';
       if (status === 429) code = 'RATE_LIMITED';
       else if (status === 401) code = 'INVALID_KEY';
+      else if (status === 404) code = 'NO_ENDPOINTS';
       send('error', {
         code,
         status: status || null,
@@ -279,6 +295,35 @@ function createChatRoutes(db, cache) {
     }
   });
 
+  // Answer feedback (👍/👎) — quality signal + telemetry. Best-effort, never blocks UX.
+  router.post('/feedback', authenticateToken, (req, res) => {
+    try {
+      const { rating, provider, model, query, answer, reason } = req.body || {};
+      if (rating !== 'up' && rating !== 'down') {
+        return res.status(400).json({ error: 'rating must be "up" or "down"' });
+      }
+      const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : null);
+      const entry = {
+        userId: req.user.id,
+        rating,
+        provider: str(provider, 40),
+        model: str(model, 120),
+        query: str(query, 500),
+        answerPreview: str(answer, 500),
+        reason: str(reason, 500),
+        createdAt: new Date().toISOString()
+      };
+      try {
+        if (!db.has('chatFeedback').value()) db.set('chatFeedback', []).write();
+        db.get('chatFeedback').push(entry).write();
+      } catch (e) { /* non-fatal: a write hiccup must not fail the user's feedback */ }
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Feedback error:', error);
+      res.status(500).json({ error: 'Failed to record feedback' });
+    }
+  });
+
   return router;
 }
 
@@ -288,6 +333,7 @@ function createChatRoutes(db, cache) {
 function friendlyError(error, provider) {
   const status = error?.status;
   if (status === 401) return `Your ${provider} API key was rejected (401). Check it in Settings and re-save.`;
+  if (status === 404) return `The selected model isn't available on ${provider} right now. Pick a different model in Settings.`;
   if (status === 429) return `${provider} is rate-limiting requests (429). Wait a moment and retry.`;
   if (status === 402) return `Your ${provider} account is out of credit (402).`;
   if (status >= 500) return `${provider} is having trouble right now (${status}). Try again shortly.`;

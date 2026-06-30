@@ -3,29 +3,58 @@ import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import 'highlight.js/styles/github-dark.css'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Badge } from '@/components/ui/badge'
-import { Bot, User, ExternalLink, Mic, FileText, Copy, Check, ChevronDown, ChevronUp, Circle, RotateCcw } from 'lucide-react'
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
+import { Bot, User, ExternalLink, Mic, FileText, Copy, Check, ChevronDown, ChevronUp, Circle, RotateCcw, ThumbsUp, ThumbsDown } from 'lucide-react'
 import { useState } from 'react'
+
+const REL_LABEL = { high: 'High relevance', medium: 'Medium relevance', low: 'Low relevance' }
 
 function RelevanceIndicator({ relevance }) {
   const colors = { high: 'text-green-500', medium: 'text-yellow-500', low: 'text-muted-foreground/50' }
-  return <Circle className={`h-2 w-2 fill-current ${colors[relevance] || colors.medium}`} title={`${relevance} relevance`} />
+  // Decorative dot; the relevance word is carried in the chip's aria-label (non-color a11y).
+  return <Circle aria-hidden="true" className={`h-2 w-2 fill-current ${colors[relevance] || colors.medium}`} />
 }
 
-// Inline citation chip — links a claim to its numbered source.
+// Shared popover that makes any source/citation actionable: shows the matched
+// evidence snippet and an "Open source" link when a URL exists (podcasts have none,
+// so the snippet IS the payoff — no more inert citations).
+function SourcePopover({ source, children }) {
+  const label = source.type === 'podcast' ? source.guest : source.title
+  return (
+    <Popover>
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverContent align="start" className="w-80 text-sm">
+        <div className="flex items-center gap-2 mb-2">
+          {source.type === 'podcast' ? <Mic className="h-3.5 w-3.5 text-purple-500 flex-shrink-0" /> : <FileText className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />}
+          <span className="font-medium truncate">{label || 'Source'}</span>
+          <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground flex-shrink-0">{REL_LABEL[source.relevance] || ''}</span>
+        </div>
+        {source.snippet
+          ? <p className="text-xs text-muted-foreground leading-relaxed">…{source.snippet}…</p>
+          : <p className="text-xs text-muted-foreground italic">No preview available for this source.</p>}
+        {source.url && (
+          <a href={source.url} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:underline">
+            Open source <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+// Inline citation chip — opens the source's evidence (snippet + link).
 function CitationChip({ n, source }) {
   const label = source.type === 'podcast' ? source.guest : source.title
-  const title = `Source ${n}: ${label || 'source'}${source.url ? ' (opens in new tab)' : ''}`
   return (
-    <button
-      type="button"
-      title={title}
-      aria-label={title}
-      onClick={() => source.url && window.open(source.url, '_blank', 'noopener')}
-      className={`align-super text-[0.7em] font-semibold mx-0.5 px-1 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors ${source.url ? 'cursor-pointer' : 'cursor-default'}`}
-    >
-      {n}
-    </button>
+    <SourcePopover source={source}>
+      <button
+        type="button"
+        aria-label={`Source ${n}: ${label || 'source'} — show evidence`}
+        className="align-super text-[0.7em] font-semibold mx-0.5 px-1 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer"
+      >
+        {n}
+      </button>
+    </SourcePopover>
   )
 }
 
@@ -81,15 +110,15 @@ function CodeBlock({ children, className, ...props }) {
   )
 }
 
-function SourcesPanel({ sources }) {
+function SourcesPanel({ sources, citedNums = [] }) {
   const [isExpanded, setIsExpanded] = useState(false)
-  const highRelevance = sources.filter(s => s.relevance === 'high')
-  const mediumRelevance = sources.filter(s => s.relevance === 'medium')
-  const defaultVisibleCount = 5
-  const topSources = [...highRelevance, ...mediumRelevance].slice(0, defaultVisibleCount)
-  const remainingSources = sources.slice(defaultVisibleCount)
-  const hasMoreSources = remainingSources.length > 0
-  const visibleSources = isExpanded ? sources : topSources
+  // Cited sources (the ones the answer actually used) lead; the rest follow.
+  const cited = citedNums.map(n => sources[n - 1]).filter(Boolean)
+  const citedSet = new Set(cited.map(s => s.index))
+  const ordered = [...cited, ...sources.filter(s => !citedSet.has(s.index))]
+  const defaultVisibleCount = 6
+  const visible = isExpanded ? ordered : ordered.slice(0, defaultVisibleCount)
+  const moreCount = ordered.length - visible.length
 
   return (
     <div className="space-y-2">
@@ -101,58 +130,51 @@ function SourcesPanel({ sources }) {
         {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
         <span>
           Sources ({sources.length})
-          {highRelevance.length > 0 && <span className="ml-1 text-green-500">{highRelevance.length} highly relevant</span>}
+          {cited.length > 0 && <span className="ml-1 text-primary">· {cited.length} cited</span>}
         </span>
       </button>
 
-      <div className={`space-y-1.5 ${isExpanded ? '' : 'max-h-[120px] overflow-hidden'}`}>
-        {visibleSources.filter(s => s.relevance === 'high').length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {visibleSources.filter(s => s.relevance === 'high').map((source, idx) => <SourceBadge key={`high-${idx}`} source={source} />)}
-          </div>
-        )}
-        {visibleSources.filter(s => s.relevance === 'medium').length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {visibleSources.filter(s => s.relevance === 'medium').map((source, idx) => <SourceBadge key={`med-${idx}`} source={source} />)}
-          </div>
-        )}
-        {isExpanded && visibleSources.filter(s => s.relevance === 'low' || !s.relevance).length > 0 && (
-          <div className="flex flex-wrap gap-1.5 opacity-60">
-            {visibleSources.filter(s => s.relevance === 'low' || !s.relevance).map((source, idx) => <SourceBadge key={`low-${idx}`} source={source} />)}
-          </div>
-        )}
+      <div className="flex flex-wrap gap-1.5">
+        {visible.map(source => <SourceBadge key={source.index} source={source} cited={citedSet.has(source.index)} />)}
       </div>
 
-      {hasMoreSources && !isExpanded && (
+      {!isExpanded && moreCount > 0 && (
         <button onClick={() => setIsExpanded(true)} className="text-xs text-primary hover:underline">
-          + {remainingSources.length} more sources
+          + {moreCount} more sources
         </button>
       )}
     </div>
   )
 }
 
-function SourceBadge({ source }) {
+function SourceBadge({ source, cited }) {
+  const relWord = source.relevance ? source.relevance[0].toUpperCase() + source.relevance.slice(1) : 'Medium'
+  const label = source.type === 'podcast' ? source.guest : source.title
   return (
-    <Badge
-      variant="outline"
-      className="cursor-pointer hover:bg-muted flex items-center gap-1.5 text-xs py-0.5"
-      onClick={() => source.url && window.open(source.url, '_blank', 'noopener')}
-    >
-      <span className="font-mono text-[10px] text-muted-foreground">{source.index}</span>
-      <RelevanceIndicator relevance={source.relevance} />
-      {source.type === 'podcast' ? <Mic className="h-3 w-3 text-purple-500" /> : <FileText className="h-3 w-3 text-blue-500" />}
-      <span className="truncate max-w-[180px]">{source.type === 'podcast' ? source.guest : source.title}</span>
-      {source.url && <ExternalLink className="h-2.5 w-2.5 opacity-50" />}
-    </Badge>
+    <SourcePopover source={source}>
+      <button
+        type="button"
+        aria-label={`Source ${source.index}: ${label} — ${relWord} relevance. Show evidence.`}
+        className={`inline-flex items-center gap-1.5 text-xs py-0.5 px-2 rounded-full border transition-colors cursor-pointer hover:bg-muted ${cited ? 'border-primary/40 bg-primary/5' : 'border-border bg-background'}`}
+      >
+        <span className="font-mono text-[10px] text-muted-foreground">{source.index}</span>
+        <RelevanceIndicator relevance={source.relevance} />
+        {source.type === 'podcast' ? <Mic className="h-3 w-3 text-purple-500" /> : <FileText className="h-3 w-3 text-blue-500" />}
+        <span className="truncate max-w-[180px]">{label}</span>
+        {source.url && <ExternalLink className="h-2.5 w-2.5 opacity-50" />}
+      </button>
+    </SourcePopover>
   )
 }
 
-export function ChatMessage({ message, user, onRegenerate }) {
+export function ChatMessage({ message, user, onRegenerate, onFeedback }) {
   const isUser = message.role === 'user'
   const isAssistant = message.role === 'assistant'
   const [copied, setCopied] = useState(false)
+  const [feedback, setFeedback] = useState(null)
   const sources = message.sources || []
+  // Which sources the answer actually cited (drives cited-first ordering).
+  const citedNums = [...new Set(Array.from((message.content || '').matchAll(/\[(\d+)\]/g), m => parseInt(m[1], 10)))]
 
   const copyMessage = () => {
     navigator.clipboard.writeText(message.content || '')
@@ -214,7 +236,7 @@ export function ChatMessage({ message, user, onRegenerate }) {
           )}
         </div>
 
-        {isAssistant && sources.length > 0 && <SourcesPanel sources={sources} />}
+        {isAssistant && sources.length > 0 && <SourcesPanel sources={sources} citedNums={citedNums} />}
 
         {/* Action row + provenance */}
         {isAssistant && message.status !== 'streaming' && (message.content || message.provider) && (
@@ -235,6 +257,19 @@ export function ChatMessage({ message, user, onRegenerate }) {
               <button onClick={onRegenerate} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1" aria-label="Regenerate response">
                 <RotateCcw className="h-3 w-3" /> Regenerate
               </button>
+            )}
+            {onFeedback && (
+              <div className="flex items-center gap-2">
+                <button onClick={() => { setFeedback('up'); onFeedback('up') }} aria-label="Good response" aria-pressed={feedback === 'up'}
+                  className={`text-xs hover:text-foreground ${feedback === 'up' ? 'text-green-600' : 'text-muted-foreground'}`}>
+                  <ThumbsUp className="h-3 w-3" />
+                </button>
+                <button onClick={() => { setFeedback('down'); onFeedback('down') }} aria-label="Bad response" aria-pressed={feedback === 'down'}
+                  className={`text-xs hover:text-foreground ${feedback === 'down' ? 'text-destructive' : 'text-muted-foreground'}`}>
+                  <ThumbsDown className="h-3 w-3" />
+                </button>
+                {feedback && <span className="text-xs text-muted-foreground">Thanks</span>}
+              </div>
             )}
           </div>
         )}
