@@ -259,7 +259,7 @@ export function ChatBox({ isFloating = false, onClose }) {
       setStreaming(false)
       abortRef.current = null
     }
-  }, [provider, authFetch, updateMsg])
+  }, [provider, model, authFetch, updateMsg])
 
   const handleEvent = (id, event, data) => {
     switch (event) {
@@ -545,17 +545,20 @@ export function ChatBox({ isFloating = false, onClose }) {
                 <Button size="sm" onClick={() => navigate('/settings')}>Add Key</Button>
               </div>
             ) : (
-              <div className="flex gap-2">
+              <div className="flex items-end gap-2">
                 <textarea
                   ref={inputRef}
                   rows={1}
-                  placeholder="Ask about product management… (Shift+Enter for a new line)"
+                  placeholder="Ask about product management…"
                   value={input}
                   onChange={(e) => { setInput(e.target.value); autoGrow(e.target) }}
                   onKeyDown={handleKeyDown}
                   disabled={streaming}
                   aria-label="Chat message"
-                  className="flex-1 resize-none max-h-32 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  data-gramm="false"
+                  data-gramm_editor="false"
+                  data-enable-grammarly="false"
+                  className="flex-1 resize-none max-h-32 min-h-[40px] rounded-md border border-input bg-background px-3 py-2 text-sm leading-5 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 />
                 {streaming ? (
                   <Button onClick={handleStop} variant="outline" title="Stop generating" aria-label="Stop generating">
